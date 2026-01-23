@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BEAR\Async\Adapter;
 
 use BEAR\Async\AsyncInterface;
+use BEAR\Async\Exception\BootstrapFileException;
 use BEAR\Async\Qualifier\AppDir;
 use BEAR\Async\Qualifier\AppNamespace;
 use BEAR\Async\Qualifier\Context;
@@ -13,13 +14,13 @@ use parallel\Future;
 use parallel\Runtime;
 
 use function array_values;
-use function assert;
 use function extension_loaded;
+use function file_exists;
 use function file_put_contents;
-use function is_string;
 use function sprintf;
 use function sys_get_temp_dir;
 use function tempnam;
+use function unlink;
 
 /**
  * ext-parallel based async execution using thread pool
@@ -68,8 +69,14 @@ $GLOBALS['__bear_async_resource'] = \BEAR\Package\Injector::getInstance('%s', '%
 PHP;
         $content = sprintf($template, $autoloadFile, $namespace, $context, $appDir);
         $file = tempnam(sys_get_temp_dir(), 'bear_async_');
-        assert(is_string($file));
-        file_put_contents($file, $content);
+        if ($file === false) {
+            throw new BootstrapFileException('Failed to create temporary bootstrap file');
+        }
+
+        $result = file_put_contents($file, $content);
+        if ($result === false) {
+            throw new BootstrapFileException(sprintf('Failed to write bootstrap file: %s', $file));
+        }
 
         return $file;
     }
@@ -136,6 +143,10 @@ PHP;
     {
         foreach ($this->pool as $runtime) {
             $runtime->kill();
+        }
+
+        if (file_exists($this->bootstrapFile)) {
+            @unlink($this->bootstrapFile);
         }
     }
 }

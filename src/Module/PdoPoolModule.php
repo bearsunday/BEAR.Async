@@ -22,7 +22,7 @@ use Ray\Di\AbstractModule;
  *       protected function configure(): void
  *       {
  *           $this->install(new PackageModule());
- *           $this->install(new AsyncModule(Adapter::Swoole));
+ *           $this->install(new AsyncSwooleModule());
  *           $this->install(new PdoPoolModule(
  *               'mysql:host=localhost;dbname=test',
  *               'user',

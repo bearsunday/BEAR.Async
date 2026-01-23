@@ -66,7 +66,7 @@ class AppModule extends AbstractModule
 
 | Use Case | Recommended Module |
 |----------|-------------------|
-| PHP-FPM / Apache with embed resources | `AsyncParallelModule` |
+| PHP-FPM / Apache with embedded resources | `AsyncParallelModule` |
 | Swoole HTTP Server | `AsyncSwooleModule` |
 
 ### Comparison
