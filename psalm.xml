@@ -4,7 +4,7 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xmlns="https://getpsalm.org/schema/config"
     xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
-    findUnusedBaselineEntry="true"
+    findUnusedBaselineEntry="false"
     findUnusedCode="false"
     autoloader="vendor/autoload.php"
 >
@@ -20,6 +20,8 @@
             <errorLevel type="suppress">
                 <referencedClass name="Swoole\Coroutine"/>
                 <referencedClass name="Swoole\Coroutine\WaitGroup"/>
+                <referencedClass name="Swoole\Coroutine\Channel"/>
+                <referencedClass name="Swoole\Lock"/>
                 <referencedClass name="parallel\Runtime"/>
                 <referencedClass name="BEAR\Resource\DataLoader\DataLoader"/>
             </errorLevel>
@@ -32,11 +34,13 @@
         <MixedAssignment>
             <errorLevel type="suppress">
                 <directory name="src/Adapter"/>
+                <file name="src/PdoPool.php"/>
             </errorLevel>
         </MixedAssignment>
         <MixedMethodCall>
             <errorLevel type="suppress">
                 <directory name="src/Adapter"/>
+                <file name="src/PdoPool.php"/>
             </errorLevel>
         </MixedMethodCall>
         <InvalidStringClass>

@@ -9,6 +9,11 @@ parameters:
     ignoreErrors:
         - '#class Swoole\\Coroutine\\WaitGroup#'
         - '#class Swoole\\Coroutine#'
+        - '#Swoole\\Coroutine::run\(\)#'
+        - '#Swoole\\Coroutine::create\(\)#'
+        - '#Swoole\\Coroutine::sleep\(\)#'
+        - '#Swoole\\Coroutine\\run#'
+        - '#Swoole\\Lock#'
         - '#Call to an undefined method BEAR\\Resource\\ResourceObject::on[A-Za-z]+\(\)#'
         - '#has invalid type BEAR\\Resource\\DataLoader\\DataLoader#'
         - '#has unknown class BEAR\\Resource\\DataLoader\\DataLoader#'
