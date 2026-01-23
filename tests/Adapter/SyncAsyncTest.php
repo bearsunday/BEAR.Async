@@ -22,7 +22,7 @@ class SyncAsyncTest extends TestCase
 
     public function testInvokeWithEmptyTasks(): void
     {
+        $this->expectNotToPerformAssertions();
         ($this->syncAsync)([]);
-        $this->assertTrue(true); // No exception thrown
     }
 }

@@ -7,6 +7,8 @@ namespace BEAR\Async\Module;
 use BEAR\Async\Adapter;
 use BEAR\Async\Adapter\SyncAsync;
 use BEAR\Async\AsyncInterface;
+use BEAR\Async\AsyncLinker;
+use BEAR\Resource\LinkerInterface;
 use BEAR\Resource\Module\ResourceModule;
 use PHPUnit\Framework\TestCase;
 use Ray\Di\AbstractModule;
@@ -52,5 +54,16 @@ class AsyncCrawlModuleTest extends TestCase
         $async = $injector->getInstance(AsyncInterface::class);
 
         $this->assertInstanceOf(SyncAsync::class, $async);
+    }
+
+    public function testLinkerInterfaceBinding(): void
+    {
+        $resourceModule = new ResourceModule('FakeVendor\Sandbox');
+        $resourceModule->override(new AsyncCrawlModule());
+
+        $injector = new Injector($resourceModule);
+        $linker = $injector->getInstance(LinkerInterface::class);
+
+        $this->assertInstanceOf(AsyncLinker::class, $linker);
     }
 }

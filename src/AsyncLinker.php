@@ -306,10 +306,10 @@ final class AsyncLinker implements LinkerInterface
             return false;
         }
 
-        /** @var BodyOrStringList $list */
-        $list = $value;
         /** @var Body $firstRow */
-        $firstRow = array_pop($list);
+        $firstRow = end($value);
+        /** @var BodyOrStringList $list */
+        $list = array_slice($value, 0, -1, true);
         /** @var Query|string $firstRow */
         $keys = array_keys((array) $firstRow);
         $isMultiColumnMultiRowList = $this->isMultiColumnMultiRowList($keys, $list);

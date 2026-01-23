@@ -28,9 +28,13 @@ final class AmpAsync implements AsyncInterface
         $futures = [];
         foreach ($tasks as $task) {
             $futures[] = call_user_func('Amp\async', static function () use ($task): void {
-                $result = ($task->getRequest())()->body;
-                /** @var array<string, mixed>|null $result */
-                $task->setResult($result);
+                try {
+                    $result = ($task->getRequest())()->body;
+                    /** @var array<string, mixed>|null $result */
+                    $task->setResult($result);
+                } catch (\Throwable) {
+                    $task->setResult(null);
+                }
             });
         }
 

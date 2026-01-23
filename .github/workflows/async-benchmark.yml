@@ -1,5 +1,9 @@
 name: Async Benchmark
 
+# Note: ParallelAsync adapter is not benchmarked because ext-parallel
+# requires objects passed to Runtime::run to be serializable, but
+# BEAR.Resource Request objects contain non-serializable closures.
+
 on:
   push:
   pull_request:
@@ -29,9 +33,10 @@ jobs:
       - run: composer require amphp/amp --dev
       - name: Run Amp Benchmark
         run: |
+          set -e
           result=$(php demo/benchmark.php amp)
           echo "$result"
-          elapsed=$(echo "$result" | jq -r '.elapsed_ms')
+          elapsed=$(echo "$result" | jq -e -r '.elapsed_ms')
           if [ "$elapsed" -lt 1000 ]; then
             echo "Parallel execution verified: ${elapsed}ms < 1000ms"
           else
@@ -59,7 +64,7 @@ jobs:
             echo ob_get_clean();
           });" 2>/dev/null || true)
           echo "$result"
-          elapsed=$(echo "$result" | jq -r '.elapsed_ms')
+          elapsed=$(echo "$result" | jq -e -r '.elapsed_ms')
           if [ "$elapsed" -lt 1000 ]; then
             echo "Parallel execution verified: ${elapsed}ms < 1000ms"
           else
