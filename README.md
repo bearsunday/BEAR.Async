@@ -10,9 +10,12 @@ composer require bear/async
 
 ## Usage
 
+### Parallel Module (ext-parallel)
+
+Recommended for typical web applications with embedded resources.
+
 ```php
-use BEAR\Async\Adapter;
-use BEAR\Async\Module\AsyncModule;
+use BEAR\Async\Module\AsyncParallelModule;
 use Ray\Di\AbstractModule;
 
 class AppModule extends AbstractModule
@@ -20,20 +23,79 @@ class AppModule extends AbstractModule
     protected function configure(): void
     {
         $this->install(new PackageModule());
-
-        // Specify the adapter explicitly
-        $this->install(new AsyncModule(Adapter::Swoole));
+        $this->install(new AsyncParallelModule(
+            namespace: 'MyVendor\MyApp',
+            context: 'prod-app',
+            appDir: dirname(__DIR__),
+        ));
     }
 }
 ```
 
-## Available Adapters
+Pool size defaults to CPU core count. To override:
 
-| Adapter | Requirements | Description |
-|---------|--------------|-------------|
-| `Adapter::Swoole` | ext-swoole + coroutine context | Swoole coroutines with WaitGroup |
-| `Adapter::Amp` | amphp/amp | Amp async/await pattern |
-| `Adapter::Sync` | None (default) | Synchronous fallback |
+```php
+$this->install(new AsyncParallelModule(
+    namespace: 'MyVendor\MyApp',
+    context: 'prod-app',
+    appDir: dirname(__DIR__),
+    poolSize: 8,
+));
+```
+
+### Swoole Module
+
+For applications already running on Swoole HTTP Server with high concurrency requirements.
+
+```php
+use BEAR\Async\Module\AsyncSwooleModule;
+use Ray\Di\AbstractModule;
+
+class AppModule extends AbstractModule
+{
+    protected function configure(): void
+    {
+        $this->install(new PackageModule());
+        $this->install(new AsyncSwooleModule());
+        $this->install(new PdoPoolModule($dsn, $user, $password)); // Connection pool required
+    }
+}
+```
+
+### Sync Module (Fallback)
+
+For testing and development environments.
+
+```php
+use BEAR\Async\Module\AsyncSyncModule;
+use Ray\Di\AbstractModule;
+
+class AppModule extends AbstractModule
+{
+    protected function configure(): void
+    {
+        $this->install(new PackageModule());
+        $this->install(new AsyncSyncModule());
+    }
+}
+```
+
+## Which Module Should I Use?
+
+| Use Case | Recommended Module |
+|----------|-------------------|
+| PHP-FPM / Apache with embed resources | `AsyncParallelModule` |
+| Swoole HTTP Server | `AsyncSwooleModule` |
+| Testing / Development | `AsyncSyncModule` |
+
+### Comparison
+
+| | AsyncParallelModule | AsyncSwooleModule |
+|---|---|---|
+| Concurrency | Thread pool (CPU cores) | Coroutines (thousands) |
+| PDO handling | Isolated per thread | Connection pool required |
+| Server | PHP-FPM / Apache | Swoole HTTP Server |
+| Setup | Simple | Requires Swoole server |
 
 ## How It Works
 
@@ -57,5 +119,5 @@ Level 3: Comments for each post → all comment requests execute in parallel
 
 ## Optional Dependencies
 
+- ext-parallel: For parallel thread execution (requires ZTS PHP)
 - ext-swoole: For Swoole coroutine support
-- amphp/amp: For Amp async support

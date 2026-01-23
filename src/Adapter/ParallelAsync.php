@@ -1,0 +1,141 @@
+<?php
+
+declare(strict_types=1);
+
+namespace BEAR\Async\Adapter;
+
+use BEAR\Async\AsyncInterface;
+use BEAR\Async\Qualifier\AppDir;
+use BEAR\Async\Qualifier\AppNamespace;
+use BEAR\Async\Qualifier\Context;
+use BEAR\Async\Qualifier\PoolSize;
+use parallel\Future;
+use parallel\Runtime;
+
+use function array_values;
+use function assert;
+use function extension_loaded;
+use function file_put_contents;
+use function is_string;
+use function sprintf;
+use function sys_get_temp_dir;
+use function tempnam;
+
+/**
+ * ext-parallel based async execution using thread pool
+ *
+ * This implementation uses PHP's parallel extension for true parallel
+ * execution across multiple threads. Each Runtime maintains its own
+ * bootstrapped application instance for efficient reuse.
+ *
+ * Requirements:
+ * - PHP built with ZTS (Zend Thread Safety)
+ * - ext-parallel installed
+ *
+ * @codeCoverageIgnore Requires ext-parallel runtime
+ */
+final class ParallelAsync implements AsyncInterface
+{
+    /** @var list<Runtime> Runtime instances */
+    private array $pool = [];
+
+    private bool $initialized = false;
+
+    private readonly string $bootstrapFile;
+
+    /**
+     * @param string       $namespace Application namespace (e.g., 'MyVendor\MyApp')
+     * @param string       $context   Application context (e.g., 'prod-app')
+     * @param string       $appDir    Application root directory
+     * @param positive-int $poolSize  Number of parallel runtimes (threads)
+     */
+    public function __construct(
+        #[AppNamespace] string $namespace,
+        #[Context] string $context,
+        #[AppDir] string $appDir,
+        #[PoolSize] private readonly int $poolSize = 4,
+    ) {
+        $this->bootstrapFile = $this->createBootstrapFile($namespace, $context, $appDir);
+    }
+
+    private function createBootstrapFile(string $namespace, string $context, string $appDir): string
+    {
+        $autoloadFile = $appDir . '/vendor/autoload.php';
+        $template = <<<'PHP'
+<?php
+require '%s';
+$GLOBALS['__bear_async_resource'] = \BEAR\Package\Injector::getInstance('%s', '%s', '%s')->getInstance(\BEAR\Resource\ResourceInterface::class);
+PHP;
+        $content = sprintf($template, $autoloadFile, $namespace, $context, $appDir);
+        $file = tempnam(sys_get_temp_dir(), 'bear_async_');
+        assert(is_string($file));
+        file_put_contents($file, $content);
+
+        return $file;
+    }
+
+    public function __invoke(array $tasks): void
+    {
+        if (! $this->initialized) {
+            $this->initializePool();
+            $this->initialized = true;
+        }
+
+        /** @var list<Future> $futures */
+        $futures = [];
+        $taskList = array_values($tasks);
+
+        foreach ($taskList as $i => $task) {
+            $runtime = $this->pool[$i % $this->poolSize];
+            $uri = (string) $task->getRequest()->resourceObject->uri;
+            /** @var array<string, mixed> $query */
+            $query = $task->getRequest()->query ?? [];
+
+            $future = $runtime->run(
+                /**
+                 * @param array<string, mixed> $query
+                 *
+                 * @return array<string, mixed>|null
+                 */
+                static function (string $uri, array $query): array|null {
+                    /** @var \BEAR\Resource\ResourceInterface $resource */
+                    $resource = $GLOBALS['__bear_async_resource'];
+                    /** @var array<string, mixed> $query */
+                    $ro = $resource->get($uri, $query);
+
+                    /** @var array<string, mixed>|null */
+                    return $ro()->body; // @phpstan-ignore-line callable.nonCallable, property.nonObject
+                },
+                [$uri, $query],
+            );
+            if ($future !== null) {
+                $futures[$i] = $future;
+            }
+        }
+
+        foreach ($futures as $i => $future) {
+            /** @var array<string, mixed>|null $result */
+            $result = $future->value();
+            $taskList[$i]->setResult($result);
+        }
+    }
+
+    public function isAvailable(): bool
+    {
+        return extension_loaded('parallel');
+    }
+
+    private function initializePool(): void
+    {
+        for ($i = 0; $i < $this->poolSize; $i++) {
+            $this->pool[] = new Runtime($this->bootstrapFile);
+        }
+    }
+
+    public function __destruct()
+    {
+        foreach ($this->pool as $runtime) {
+            $runtime->kill();
+        }
+    }
+}
