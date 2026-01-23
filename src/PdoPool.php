@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BEAR\Async;
 
+use BEAR\Async\Exception\LogicException;
 use BEAR\Async\Exception\RuntimeException;
 use PDO;
 use Swoole\Coroutine\Channel;
@@ -90,11 +91,13 @@ final class PdoPool
 
     /**
      * Return a PDO instance to the pool
+     *
+     * @throws LogicException if the pool has not been initialized
      */
     public function put(PDO $pdo): void
     {
         if ($this->pool === null) {
-            return;
+            throw new LogicException('Cannot return PDO to uninitialized pool');
         }
 
         $this->pool->push($pdo);
@@ -104,14 +107,32 @@ final class PdoPool
      * Initialize the connection pool
      *
      * This must be called within a Swoole coroutine context.
+     * If PDO connection creation fails, partial connections are cleaned up.
      */
     private function initialize(): void
     {
-        $this->pool = new Channel($this->size);
-        for ($i = 0; $i < $this->size; $i++) {
-            $pdo = new PDO($this->dsn, $this->user, $this->pass);
-            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            $this->pool->push($pdo);
+        $channel = new Channel($this->size);
+        $connections = [];
+
+        try {
+            for ($i = 0; $i < $this->size; $i++) {
+                $pdo = new PDO($this->dsn, $this->user, $this->pass);
+                $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                $connections[] = $pdo;
+            }
+
+            // All connections created successfully, push to channel
+            foreach ($connections as $pdo) {
+                $channel->push($pdo);
+            }
+
+            $this->pool = $channel;
+        } catch (\PDOException $e) {
+            // Clean up partial connections on failure
+            $connections = [];
+            $channel->close();
+
+            throw $e;
         }
     }
 }

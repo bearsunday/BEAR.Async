@@ -55,15 +55,17 @@ class PdoPoolModuleTest extends TestCase
 
             // Get 4 connections (should succeed since pool size is 4)
             $connections = [];
-            for ($i = 0; $i < 4; $i++) {
-                $connections[] = $pool->get();
-            }
+            try {
+                for ($i = 0; $i < 4; $i++) {
+                    $connections[] = $pool->get();
+                }
 
-            $this->assertCount(4, $connections);
-
-            // Return all connections
-            foreach ($connections as $pdo) {
-                $pool->put($pdo);
+                $this->assertCount(4, $connections);
+            } finally {
+                // Return all connections even if assertion fails
+                foreach ($connections as $pdo) {
+                    $pool->put($pdo);
+                }
             }
         });
     }
