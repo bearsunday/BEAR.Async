@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace BEAR\Async;
 
-use BEAR\Async\Exception\LogicException;
-use BEAR\Async\Exception\RuntimeException;
+use BEAR\Async\Exception\PoolNotInitializedException;
+use BEAR\Async\Exception\PoolTimeoutException;
 use PDO;
 use Swoole\Coroutine\Channel;
 use Swoole\Lock;
@@ -57,7 +57,7 @@ final class PdoPool
      * This method blocks until a connection becomes available or timeout.
      * The pool is lazy-initialized on first call.
      *
-     * @throws RuntimeException if timeout occurs while waiting for a connection
+     * @throws PoolTimeoutException if timeout occurs while waiting for a connection
      */
     public function get(): PDO
     {
@@ -83,7 +83,7 @@ final class PdoPool
         $pdo = $pool->pop($this->timeout);
 
         if ($pdo === false) {
-            throw new RuntimeException('Timeout while waiting for a PDO connection from the pool');
+            throw new PoolTimeoutException();
         }
 
         return $pdo;
@@ -92,12 +92,12 @@ final class PdoPool
     /**
      * Return a PDO instance to the pool
      *
-     * @throws LogicException if the pool has not been initialized
+     * @throws PoolNotInitializedException if the pool has not been initialized
      */
     public function put(PDO $pdo): void
     {
         if ($this->pool === null) {
-            throw new LogicException('Cannot return PDO to uninitialized pool');
+            throw new PoolNotInitializedException();
         }
 
         $this->pool->push($pdo);

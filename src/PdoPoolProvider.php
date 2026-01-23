@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace BEAR\Async;
 
-use BEAR\Async\Exception\RuntimeException;
+use BEAR\Async\Exception\NotInCoroutineException;
 use PDO;
 use Ray\Di\ProviderInterface;
 use Swoole\Coroutine;
@@ -33,12 +33,12 @@ final class PdoPoolProvider implements ProviderInterface
      * The connection is automatically returned to the pool when
      * the coroutine completes via defer().
      *
-     * @throws RuntimeException if called outside a Swoole coroutine context
+     * @throws NotInCoroutineException if called outside a Swoole coroutine context
      */
     public function get(): PDO
     {
         if (Coroutine::getCid() === -1) {
-            throw new RuntimeException('PdoPoolProvider::get() must be called within a Swoole coroutine context');
+            throw new NotInCoroutineException();
         }
 
         $pdo = $this->pool->get();
