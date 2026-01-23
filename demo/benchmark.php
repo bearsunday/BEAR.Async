@@ -6,7 +6,7 @@ declare(strict_types=1);
 /**
  * BEAR.Async Adapter Benchmark
  *
- * Usage: php demo/benchmark.php [sync|amp|swoole|parallel]
+ * Usage: php demo/benchmark.php [sync|swoole]
  *
  * Expected request tree (7 total requests):
  *   SlowUser (200ms)
@@ -22,26 +22,24 @@ declare(strict_types=1);
  *   - Async: 3 levels × 200ms   = ~600ms  (parallel per level)
  */
 
-use BEAR\Async\Adapter;
-use BEAR\Async\Adapter\AmpAsync;
-use BEAR\Async\Adapter\ParallelAsync;
 use BEAR\Async\Adapter\SwooleAsync;
 use BEAR\Async\Adapter\SyncAsync;
+use BEAR\Async\AsyncInterface;
+use BEAR\Async\Module\AsyncSwooleModule;
+use Ray\Di\AbstractModule;
 
 require __DIR__ . '/bootstrap.php';
 
 $adapterName = $argv[1] ?? 'sync';
 
-// Map adapter name to enum
-$adapter = match ($adapterName) {
-    'sync' => Adapter::Sync,
-    'amp' => Adapter::Amp,
-    'swoole' => Adapter::Swoole,
-    'parallel' => Adapter::Parallel,
+// Create module and async implementation for availability check
+$result = match ($adapterName) {
+    'sync' => ['module' => null, 'async' => new SyncAsync()],
+    'swoole' => ['module' => new AsyncSwooleModule(), 'async' => new SwooleAsync()],
     default => null,
 };
 
-if ($adapter === null) {
+if ($result === null) {
     echo json_encode(['error' => "Unknown adapter: {$adapterName}"]) . PHP_EOL;
     $GLOBALS['benchmark_exit_code'] = 1;
     if (! class_exists('Swoole\Coroutine') || Swoole\Coroutine::getCid() === -1) {
@@ -51,14 +49,12 @@ if ($adapter === null) {
     return;
 }
 
-// Check adapter availability
-$asyncImpl = match ($adapter) {
-    Adapter::Sync => new SyncAsync(),
-    Adapter::Amp => new AmpAsync(),
-    Adapter::Swoole => new SwooleAsync(),
-    Adapter::Parallel => new ParallelAsync(),
-};
+/** @var AbstractModule|null $module */
+$module = $result['module'];
+/** @var AsyncInterface $asyncImpl */
+$asyncImpl = $result['async'];
 
+// Check adapter availability
 if (! $asyncImpl->isAvailable()) {
     echo json_encode(['error' => "Adapter '{$adapterName}' is not available"]) . PHP_EOL;
     $GLOBALS['benchmark_exit_code'] = 2;
@@ -72,7 +68,16 @@ if (! $asyncImpl->isAvailable()) {
 $start = microtime(true);
 
 // Run crawl with specified adapter
-$resource = createResourceClient($adapter);
+if ($module !== null) {
+    $resource = createResourceClient($module);
+} else {
+    // Sync mode: use ResourceModule without async
+    $resource = (new Ray\Di\Injector(
+        new BEAR\Resource\Module\ResourceModule('BEAR\Async\Demo'),
+        __DIR__ . '/tmp'
+    ))->getInstance(BEAR\Resource\ResourceInterface::class);
+}
+
 $result = $resource->get->uri('app://self/slow-user')->linkCrawl('tree')();
 
 $elapsed = microtime(true) - $start;
