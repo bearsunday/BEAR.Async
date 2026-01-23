@@ -25,6 +25,8 @@ use Swoole\Lock;
  *   $pdo = $pool->get();
  *   // use $pdo
  *   $pool->put($pdo);
+ *
+ * @codeCoverageIgnore Requires Swoole coroutine context
  */
 final class PdoPool
 {

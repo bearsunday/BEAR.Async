@@ -15,6 +15,9 @@ use BEAR\Async\AsyncInterface;
  */
 final class SyncAsync implements AsyncInterface
 {
+    /**
+     * @codeCoverageIgnore Requires BEAR.Resource integration test
+     */
     public function __invoke(array $tasks): void
     {
         foreach ($tasks as $task) {

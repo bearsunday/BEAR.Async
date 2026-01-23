@@ -19,6 +19,8 @@ use function extension_loaded;
  *
  * Note: This only works when running inside a Swoole coroutine context
  * (e.g., inside a Swoole server or Coroutine::create block).
+ *
+ * @codeCoverageIgnore Requires Swoole coroutine context and BEAR.Resource integration
  */
 final class SwooleAsync implements AsyncInterface
 {

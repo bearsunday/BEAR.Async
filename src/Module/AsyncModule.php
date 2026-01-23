@@ -6,7 +6,6 @@ namespace BEAR\Async\Module;
 
 use BEAR\Async\Adapter;
 use BEAR\Async\Adapter\AmpAsync;
-use BEAR\Async\Adapter\ParallelAsync;
 use BEAR\Async\Adapter\SwooleAsync;
 use BEAR\Async\Adapter\SyncAsync;
 use BEAR\Async\AsyncInterface;
@@ -15,10 +14,10 @@ use BEAR\Resource\LinkerInterface;
 use Ray\Di\AbstractModule;
 
 /**
- * AsyncCrawlModule provides parallel execution for linkCrawl() operations
+ * AsyncModule provides parallel execution for resource requests
  *
  * This module replaces the standard Linker with AsyncLinker to enable
- * parallel execution of crawl requests using the specified adapter.
+ * parallel execution of resource requests using the specified adapter.
  *
  * Usage:
  *   class AppModule extends AbstractModule
@@ -26,17 +25,16 @@ use Ray\Di\AbstractModule;
  *       protected function configure(): void
  *       {
  *           $this->install(new PackageModule());
- *           $this->install(new AsyncCrawlModule(Adapter::Swoole));
+ *           $this->install(new AsyncModule(Adapter::Swoole));
  *       }
  *   }
  *
  * Available adapters:
  *   - Adapter::Swoole   - Swoole coroutines (requires ext-swoole + coroutine context)
  *   - Adapter::Amp      - Amp async/await (requires amphp/amp)
- *   - Adapter::Parallel - ext-parallel (requires ZTS PHP + ext-parallel)
  *   - Adapter::Sync     - Synchronous fallback (default, always available)
  */
-final class AsyncCrawlModule extends AbstractModule
+final class AsyncModule extends AbstractModule
 {
     public function __construct(
         private readonly Adapter $adapter = Adapter::Sync,
@@ -49,7 +47,6 @@ final class AsyncCrawlModule extends AbstractModule
         $class = match ($this->adapter) {
             Adapter::Swoole => SwooleAsync::class,
             Adapter::Amp => AmpAsync::class,
-            Adapter::Parallel => ParallelAsync::class,
             Adapter::Sync => SyncAsync::class,
         };
 

@@ -12,10 +12,9 @@ class AdapterTest extends TestCase
     {
         $cases = Adapter::cases();
 
-        $this->assertCount(4, $cases);
+        $this->assertCount(3, $cases);
         $this->assertSame('Swoole', Adapter::Swoole->name);
         $this->assertSame('Amp', Adapter::Amp->name);
-        $this->assertSame('Parallel', Adapter::Parallel->name);
         $this->assertSame('Sync', Adapter::Sync->name);
     }
 }

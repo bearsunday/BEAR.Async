@@ -1,6 +1,6 @@
 {
     "name": "bear/async",
-    "description": "Async/parallel execution for BEAR.Resource linkCrawl",
+    "description": "Async/parallel resource execution library for BEAR.Sunday",
     "keywords": ["async", "parallel", "crawl", "swoole", "amp"],
     "license": "MIT",
     "authors": [
@@ -21,8 +21,7 @@
     },
     "suggest": {
         "ext-swoole": "For Swoole coroutine support",
-        "amphp/amp": "For Amp async support",
-        "ext-parallel": "For true parallel execution"
+        "amphp/amp": "For Amp async support"
     },
     "autoload": {
         "psr-4": {

@@ -9,7 +9,7 @@ use BEAR\Resource\Request;
 use BEAR\Resource\ResourceObject;
 use PHPUnit\Framework\TestCase;
 
-class CrawlTaskTest extends TestCase
+class RequestTaskTest extends TestCase
 {
     public function testGetHash(): void
     {
@@ -17,7 +17,7 @@ class CrawlTaskTest extends TestCase
         $ro = $this->createMock(ResourceObject::class);
         $request = new Request($invoker, $ro, 'get', []);
 
-        $task = new CrawlTask('test-hash', $request);
+        $task = new RequestTask('test-hash', $request);
 
         $this->assertSame('test-hash', $task->getHash());
     }
@@ -28,7 +28,7 @@ class CrawlTaskTest extends TestCase
         $ro = $this->createMock(ResourceObject::class);
         $request = new Request($invoker, $ro, 'get', []);
 
-        $task = new CrawlTask('test-hash', $request);
+        $task = new RequestTask('test-hash', $request);
 
         $this->assertSame($request, $task->getRequest());
     }
@@ -39,7 +39,7 @@ class CrawlTaskTest extends TestCase
         $ro = $this->createMock(ResourceObject::class);
         $request = new Request($invoker, $ro, 'get', []);
 
-        $task = new CrawlTask('test-hash', $request);
+        $task = new RequestTask('test-hash', $request);
 
         $this->assertNull($task->getResult());
     }
@@ -50,7 +50,7 @@ class CrawlTaskTest extends TestCase
         $ro = $this->createMock(ResourceObject::class);
         $request = new Request($invoker, $ro, 'get', []);
 
-        $task = new CrawlTask('test-hash', $request);
+        $task = new RequestTask('test-hash', $request);
         $result = ['key' => 'value'];
 
         $task->setResult($result);
@@ -64,7 +64,7 @@ class CrawlTaskTest extends TestCase
         $ro = $this->createMock(ResourceObject::class);
         $request = new Request($invoker, $ro, 'get', []);
 
-        $task = new CrawlTask('test-hash', $request);
+        $task = new RequestTask('test-hash', $request);
         $body = ['existing' => 'data'];
 
         $task->addTarget($body, 'posts');
@@ -81,7 +81,7 @@ class CrawlTaskTest extends TestCase
         $ro = $this->createMock(ResourceObject::class);
         $request = new Request($invoker, $ro, 'get', []);
 
-        $task = new CrawlTask('test-hash', $request);
+        $task = new RequestTask('test-hash', $request);
 
         $this->assertSame([], $task->getTargets());
     }

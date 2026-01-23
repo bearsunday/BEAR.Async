@@ -7,7 +7,7 @@ namespace BEAR\Async;
 use BEAR\Resource\Request;
 
 /**
- * Represents a single crawl request task that may be shared by multiple targets
+ * Represents a single request task that may be shared by multiple targets
  *
  * When the same resource is requested multiple times (e.g., same user's posts
  * from different contexts), we deduplicate by using the request hash.
@@ -16,7 +16,7 @@ use BEAR\Resource\Request;
  *
  * @psalm-import-type Body from \BEAR\Resource\Types
  */
-final class CrawlTask
+final class RequestTask
 {
     /** @var Body|null */
     private array|null $result = null;
