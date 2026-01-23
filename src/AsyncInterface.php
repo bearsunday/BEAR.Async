@@ -9,7 +9,7 @@ namespace BEAR\Async;
  *
  * Implementations include:
  * - SwooleAsync: Uses Swoole coroutines with WaitGroup
- * - AmpAsync: Uses Amp async/await pattern
+ * - ParallelAsync: Uses ext-parallel for thread pool execution
  * - SyncAsync: Synchronous fallback when no async runtime is available
  */
 interface AsyncInterface
@@ -25,7 +25,6 @@ interface AsyncInterface
      * Check if this async implementation is currently available
      *
      * For Swoole: requires extension loaded AND running in coroutine context
-     * For Amp: requires Amp\Future class exists
      * For Parallel: requires ext-parallel loaded
      * For Sync: always returns true
      */

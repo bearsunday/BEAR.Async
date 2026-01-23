@@ -14,6 +14,10 @@
             <directory name="vendor" />
         </ignoreFiles>
     </projectFiles>
+    <stubs>
+        <file name="vendor/brlabrussia/parallel-stub/src/Runtime.php"/>
+        <file name="vendor/brlabrussia/parallel-stub/src/Future.php"/>
+    </stubs>
     <issueHandlers>
         <MissingOverrideAttribute errorLevel="suppress" />
         <UndefinedClass>
@@ -36,6 +40,16 @@
                 <file name="src/PdoPool.php"/>
             </errorLevel>
         </MixedAssignment>
+        <InvalidFunctionCall>
+            <errorLevel type="suppress">
+                <file name="src/Adapter/ParallelAsync.php"/>
+            </errorLevel>
+        </InvalidFunctionCall>
+        <MixedPropertyFetch>
+            <errorLevel type="suppress">
+                <file name="src/Adapter/ParallelAsync.php"/>
+            </errorLevel>
+        </MixedPropertyFetch>
         <RedundantCast>
             <errorLevel type="suppress">
                 <file name="src/AsyncLinker.php"/>

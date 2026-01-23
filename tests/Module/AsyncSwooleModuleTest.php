@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace BEAR\Async\Module;
 
-use BEAR\Async\Adapter;
-use BEAR\Async\Adapter\SyncAsync;
+use BEAR\Async\Adapter\SwooleAsync;
 use BEAR\Async\AsyncInterface;
 use BEAR\Async\AsyncLinker;
 use BEAR\Resource\LinkerInterface;
@@ -14,52 +13,35 @@ use PHPUnit\Framework\TestCase;
 use Ray\Di\AbstractModule;
 use Ray\Di\Injector;
 
-class AsyncModuleTest extends TestCase
+class AsyncSwooleModuleTest extends TestCase
 {
-    public function testDefaultAdapterIsSync(): void
-    {
-        $module = new class extends AbstractModule {
-            protected function configure(): void
-            {
-                $this->install(new ResourceModule('FakeVendor\Sandbox'));
-                $this->install(new AsyncModule());
-            }
-        };
-
-        $injector = new Injector($module);
-        $async = $injector->getInstance(AsyncInterface::class);
-
-        $this->assertInstanceOf(SyncAsync::class, $async);
-    }
-
     public function testModuleCanBeInstantiated(): void
     {
-        $module = new AsyncModule();
+        $module = new AsyncSwooleModule();
 
-        // Verify the module can be instantiated
-        $this->assertInstanceOf(AsyncModule::class, $module);
+        $this->assertInstanceOf(AsyncSwooleModule::class, $module);
     }
 
-    public function testExplicitSyncAdapter(): void
+    public function testAsyncInterfaceBinding(): void
     {
         $module = new class extends AbstractModule {
             protected function configure(): void
             {
                 $this->install(new ResourceModule('FakeVendor\Sandbox'));
-                $this->install(new AsyncModule(Adapter::Sync));
+                $this->install(new AsyncSwooleModule());
             }
         };
 
         $injector = new Injector($module);
         $async = $injector->getInstance(AsyncInterface::class);
 
-        $this->assertInstanceOf(SyncAsync::class, $async);
+        $this->assertInstanceOf(SwooleAsync::class, $async);
     }
 
     public function testLinkerInterfaceBinding(): void
     {
         $resourceModule = new ResourceModule('FakeVendor\Sandbox');
-        $resourceModule->override(new AsyncModule());
+        $resourceModule->override(new AsyncSwooleModule());
 
         $injector = new Injector($resourceModule);
         $linker = $injector->getInstance(LinkerInterface::class);
