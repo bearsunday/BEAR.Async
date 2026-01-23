@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace BEAR\Async;
 
+use BEAR\Async\Exception\RuntimeException;
 use PDO;
 use Swoole\Coroutine\Channel;
+use Swoole\Lock;
 
 /**
  * PDO connection pool for Swoole coroutine environments
@@ -25,40 +27,65 @@ use Swoole\Coroutine\Channel;
  */
 final class PdoPool
 {
+    private const DEFAULT_TIMEOUT = 3.0;
+
     private Channel|null $pool = null;
+    private Lock $lock;
+    private bool $initialized = false;
 
     /**
-     * @param non-empty-string $dsn  PDO DSN string
-     * @param string           $user Database username
-     * @param string           $pass Database password
-     * @param positive-int     $size Pool size (number of connections)
+     * @param non-empty-string $dsn     PDO DSN string
+     * @param string           $user    Database username
+     * @param string           $pass    Database password
+     * @param positive-int     $size    Pool size (number of connections)
+     * @param float            $timeout Timeout in seconds for getting a connection (default: 3.0, -1 for unlimited)
      */
     public function __construct(
         private readonly string $dsn,
         private readonly string $user,
         private readonly string $pass,
         private readonly int $size = 64,
+        private readonly float $timeout = self::DEFAULT_TIMEOUT,
     ) {
+        $this->lock = new Lock(Lock::MUTEX);
     }
 
     /**
      * Get a PDO instance from the pool
      *
-     * This method blocks until a connection becomes available.
+     * This method blocks until a connection becomes available or timeout.
      * The pool is lazy-initialized on first call.
+     *
+     * @throws RuntimeException if timeout occurs while waiting for a connection
      */
     public function get(): PDO
     {
-        $pool = $this->pool;
-        if ($pool === null) {
-            $this->initialize();
-            $pool = $this->pool;
+        if (! $this->initialized) {
+            $this->lock->lock();
+            try {
+                // Double-checked locking: re-check after acquiring lock
+                /** @psalm-suppress RedundantCondition */
+                /** @phpstan-ignore booleanNot.alwaysTrue */
+                if (! $this->initialized) {
+                    $this->initialize();
+                    $this->initialized = true;
+                }
+            } finally {
+                $this->lock->unlock();
+            }
         }
 
+        $pool = $this->pool;
         assert($pool !== null);
 
-        /** @var PDO */
-        return $pool->pop();
+        /** @var PDO|false $pdo */
+        $pdo = $pool->pop($this->timeout);
+
+        if ($pdo === false) {
+            throw new RuntimeException('Timeout while waiting for a PDO connection from the pool');
+        }
+
+        return $pdo;
     }
 
     /**

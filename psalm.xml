@@ -21,6 +21,7 @@
                 <referencedClass name="Swoole\Coroutine"/>
                 <referencedClass name="Swoole\Coroutine\WaitGroup"/>
                 <referencedClass name="Swoole\Coroutine\Channel"/>
+                <referencedClass name="Swoole\Lock"/>
                 <referencedClass name="parallel\Runtime"/>
                 <referencedClass name="BEAR\Resource\DataLoader\DataLoader"/>
             </errorLevel>
