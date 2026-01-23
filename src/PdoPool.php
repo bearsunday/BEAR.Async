@@ -49,14 +49,16 @@ final class PdoPool
      */
     public function get(): PDO
     {
-        if ($this->pool === null) {
+        $pool = $this->pool;
+        if ($pool === null) {
             $this->initialize();
+            $pool = $this->pool;
         }
 
-        assert($this->pool instanceof Channel);
+        assert($pool !== null);
 
         /** @var PDO */
-        return $this->pool->pop();
+        return $pool->pop();
     }
 
     /**
