@@ -53,6 +53,8 @@ use function uri_template;
  * @psalm-import-type ObjectList from \BEAR\Resource\Types
  * @psalm-import-type Query from \BEAR\Resource\Types
  * @psalm-import-type QueryList from \BEAR\Resource\Types
+ *
+ * @codeCoverageIgnore Requires BEAR.Resource integration test
  */
 final class AsyncLinker implements LinkerInterface
 {
@@ -132,7 +134,7 @@ final class AsyncLinker implements LinkerInterface
      */
     private function processLevel(array $annotations, LinkType $link, array &$bodyList): void
     {
-        $batch = new CrawlBatch();
+        $batch = new RequestBatch();
 
         foreach ($bodyList as &$body) {
             $this->collectCrawlRequests($annotations, $link, $body, $batch);
@@ -193,7 +195,7 @@ final class AsyncLinker implements LinkerInterface
      * @throws MethodException
      * @throws UriException
      */
-    private function collectCrawlRequests(array $annotations, LinkType $link, array &$body, CrawlBatch $batch): void
+    private function collectCrawlRequests(array $annotations, LinkType $link, array &$body, RequestBatch $batch): void
     {
         foreach ($annotations as $annotation) {
             if (! $annotation instanceof Link || $annotation->crawl !== $link->key) {

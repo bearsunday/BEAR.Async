@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use BEAR\Async\Adapter;
-use BEAR\Async\Module\AsyncCrawlModule;
+use BEAR\Async\Module\AsyncModule;
 use BEAR\Resource\Module\ResourceModule;
 use BEAR\Resource\ResourceInterface;
 use Ray\Di\Injector;
@@ -18,7 +18,7 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 function createResourceClient(Adapter $adapter): ResourceInterface
 {
     $module = new ResourceModule('BEAR\Async\Demo');
-    $module->override(new AsyncCrawlModule($adapter));
+    $module->override(new AsyncModule($adapter));
 
     return (new Injector($module, __DIR__ . '/tmp'))->getInstance(ResourceInterface::class);
 }

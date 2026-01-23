@@ -17,6 +17,8 @@ use function class_exists;
  *
  * @psalm-suppress UndefinedClass
  * @psalm-suppress UndefinedFunction
+ *
+ * @codeCoverageIgnore Requires Amp runtime and BEAR.Resource integration
  */
 final class AmpAsync implements AsyncInterface
 {

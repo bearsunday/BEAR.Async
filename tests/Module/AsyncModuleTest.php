@@ -14,7 +14,7 @@ use PHPUnit\Framework\TestCase;
 use Ray\Di\AbstractModule;
 use Ray\Di\Injector;
 
-class AsyncCrawlModuleTest extends TestCase
+class AsyncModuleTest extends TestCase
 {
     public function testDefaultAdapterIsSync(): void
     {
@@ -22,7 +22,7 @@ class AsyncCrawlModuleTest extends TestCase
             protected function configure(): void
             {
                 $this->install(new ResourceModule('FakeVendor\Sandbox'));
-                $this->install(new AsyncCrawlModule());
+                $this->install(new AsyncModule());
             }
         };
 
@@ -34,10 +34,10 @@ class AsyncCrawlModuleTest extends TestCase
 
     public function testModuleCanBeInstantiated(): void
     {
-        $module = new AsyncCrawlModule();
+        $module = new AsyncModule();
 
         // Verify the module can be instantiated
-        $this->assertInstanceOf(AsyncCrawlModule::class, $module);
+        $this->assertInstanceOf(AsyncModule::class, $module);
     }
 
     public function testExplicitSyncAdapter(): void
@@ -46,7 +46,7 @@ class AsyncCrawlModuleTest extends TestCase
             protected function configure(): void
             {
                 $this->install(new ResourceModule('FakeVendor\Sandbox'));
-                $this->install(new AsyncCrawlModule(Adapter::Sync));
+                $this->install(new AsyncModule(Adapter::Sync));
             }
         };
 
@@ -59,7 +59,7 @@ class AsyncCrawlModuleTest extends TestCase
     public function testLinkerInterfaceBinding(): void
     {
         $resourceModule = new ResourceModule('FakeVendor\Sandbox');
-        $resourceModule->override(new AsyncCrawlModule());
+        $resourceModule->override(new AsyncModule());
 
         $injector = new Injector($resourceModule);
         $linker = $injector->getInstance(LinkerInterface::class);

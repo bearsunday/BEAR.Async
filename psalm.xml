@@ -22,7 +22,6 @@
                 <referencedClass name="Swoole\Coroutine\WaitGroup"/>
                 <referencedClass name="Swoole\Coroutine\Channel"/>
                 <referencedClass name="Swoole\Lock"/>
-                <referencedClass name="parallel\Runtime"/>
                 <referencedClass name="BEAR\Resource\DataLoader\DataLoader"/>
             </errorLevel>
         </UndefinedClass>
@@ -37,17 +36,6 @@
                 <file name="src/PdoPool.php"/>
             </errorLevel>
         </MixedAssignment>
-        <MixedMethodCall>
-            <errorLevel type="suppress">
-                <directory name="src/Adapter"/>
-                <file name="src/PdoPool.php"/>
-            </errorLevel>
-        </MixedMethodCall>
-        <InvalidStringClass>
-            <errorLevel type="suppress">
-                <file name="src/Adapter/ParallelAsync.php"/>
-            </errorLevel>
-        </InvalidStringClass>
         <RedundantCast>
             <errorLevel type="suppress">
                 <file name="src/AsyncLinker.php"/>

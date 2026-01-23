@@ -7,15 +7,15 @@ namespace BEAR\Async;
 use BEAR\Resource\Request;
 
 /**
- * Collects crawl tasks for batch parallel execution
+ * Collects request tasks for batch parallel execution
  *
  * This class deduplicates requests by their hash. When the same resource
- * is requested multiple times (common in nested crawls), we create only
- * one task and register multiple targets that will all receive the result.
+ * is requested multiple times, we create only one task and register
+ * multiple targets that will all receive the result.
  */
-final class CrawlBatch
+final class RequestBatch
 {
-    /** @var array<string, CrawlTask> */
+    /** @var array<string, RequestTask> */
     private array $tasks = [];
 
     /**
@@ -34,12 +34,12 @@ final class CrawlBatch
             return;
         }
 
-        $task = new CrawlTask($hash, $request);
+        $task = new RequestTask($hash, $request);
         $task->addTarget($body, $rel);
         $this->tasks[$hash] = $task;
     }
 
-    /** @return array<string, CrawlTask> */
+    /** @return array<string, RequestTask> */
     public function getTasks(): array
     {
         return $this->tasks;

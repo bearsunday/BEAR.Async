@@ -34,6 +34,8 @@ final class PdoPoolProvider implements ProviderInterface
      * the coroutine completes via defer().
      *
      * @throws NotInCoroutineException if called outside a Swoole coroutine context
+     *
+     * @codeCoverageIgnore Requires Swoole coroutine context
      */
     public function get(): PDO
     {

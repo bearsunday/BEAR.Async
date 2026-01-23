@@ -1,6 +1,6 @@
 # BEAR.Async
 
-Async/parallel execution for BEAR.Resource `linkCrawl()`.
+Async/parallel resource execution library for BEAR.Sunday
 
 ## Installation
 
@@ -12,7 +12,7 @@ composer require bear/async
 
 ```php
 use BEAR\Async\Adapter;
-use BEAR\Async\Module\AsyncCrawlModule;
+use BEAR\Async\Module\AsyncModule;
 use Ray\Di\AbstractModule;
 
 class AppModule extends AbstractModule
@@ -22,7 +22,7 @@ class AppModule extends AbstractModule
         $this->install(new PackageModule());
 
         // Specify the adapter explicitly
-        $this->install(new AsyncCrawlModule(Adapter::Swoole));
+        $this->install(new AsyncModule(Adapter::Swoole));
     }
 }
 ```
@@ -33,14 +33,13 @@ class AppModule extends AbstractModule
 |---------|--------------|-------------|
 | `Adapter::Swoole` | ext-swoole + coroutine context | Swoole coroutines with WaitGroup |
 | `Adapter::Amp` | amphp/amp | Amp async/await pattern |
-| `Adapter::Parallel` | ext-parallel + ZTS PHP | True parallel execution |
 | `Adapter::Sync` | None (default) | Synchronous fallback |
 
 ## How It Works
 
-The AsyncLinker replaces the standard Linker to enable parallel execution of crawl requests:
+The AsyncLinker replaces the standard Linker to enable parallel execution of resource requests:
 
-1. **Level-by-level execution**: Crawl requests are processed level by level
+1. **Level-by-level execution**: Requests are processed level by level
 2. **Request deduplication**: Same requests are merged and executed only once
 3. **Result caching**: Results are cached to avoid redundant requests
 
@@ -60,4 +59,3 @@ Level 3: Comments for each post → all comment requests execute in parallel
 
 - ext-swoole: For Swoole coroutine support
 - amphp/amp: For Amp async support
-- ext-parallel: For true parallel execution

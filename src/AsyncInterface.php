@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace BEAR\Async;
 
 /**
- * Interface for async/parallel execution of crawl tasks
+ * Interface for async/parallel execution of request tasks
  *
  * Implementations include:
  * - SwooleAsync: Uses Swoole coroutines with WaitGroup
  * - AmpAsync: Uses Amp async/await pattern
- * - ParallelAsync: Uses ext-parallel for true parallelism
  * - SyncAsync: Synchronous fallback when no async runtime is available
  */
 interface AsyncInterface
@@ -18,7 +17,7 @@ interface AsyncInterface
     /**
      * Execute all tasks in parallel and populate their results
      *
-     * @param array<string, CrawlTask> $tasks Tasks keyed by request hash
+     * @param array<string, RequestTask> $tasks Tasks keyed by request hash
      */
     public function __invoke(array $tasks): void;
 
