@@ -1,0 +1,19 @@
+parameters:
+    level: max
+    paths:
+        - src
+        - tests
+    excludePaths:
+        - tests/Fake
+    reportUnmatchedIgnoredErrors: false
+    ignoreErrors:
+        - '#class Swoole\\Coroutine\\WaitGroup#'
+        - '#class Swoole\\Coroutine#'
+        - '#Call to an undefined method BEAR\\Resource\\ResourceObject::on[A-Za-z]+\(\)#'
+        - '#has invalid type BEAR\\Resource\\DataLoader\\DataLoader#'
+        - '#has unknown class BEAR\\Resource\\DataLoader\\DataLoader#'
+        - '#Call to method load\(\) on an unknown class BEAR\\Resource\\DataLoader\\DataLoader#'
+        - '#Access to an undefined property BEAR\\Resource\\Annotation\\Link::\$dataLoader#'
+        - '#Property BEAR\\Async\\AsyncLinker::\$cache .* does not accept#'
+        - '#PHPDoc tag @var with type .* is not subtype of native type#'
+        - '#will always evaluate to true#'
