@@ -62,31 +62,12 @@ class AppModule extends AbstractModule
 }
 ```
 
-### Sync Module (Fallback)
-
-For testing and development environments.
-
-```php
-use BEAR\Async\Module\AsyncSyncModule;
-use Ray\Di\AbstractModule;
-
-class AppModule extends AbstractModule
-{
-    protected function configure(): void
-    {
-        $this->install(new PackageModule());
-        $this->install(new AsyncSyncModule());
-    }
-}
-```
-
 ## Which Module Should I Use?
 
 | Use Case | Recommended Module |
 |----------|-------------------|
 | PHP-FPM / Apache with embed resources | `AsyncParallelModule` |
 | Swoole HTTP Server | `AsyncSwooleModule` |
-| Testing / Development | `AsyncSyncModule` |
 
 ### Comparison
 
