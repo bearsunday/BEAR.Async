@@ -1,0 +1,29 @@
+name: Coding Standards
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  phpcs:
+    name: PHP_CodeSniffer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: cs2pr
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Install PHP_CodeSniffer
+        run: composer bin tools require --dev squizlabs/php_codesniffer
+
+      - name: Run PHP_CodeSniffer
+        run: ./vendor/bin/phpcs -q --report=checkstyle | cs2pr

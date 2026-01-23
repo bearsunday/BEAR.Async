@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<ruleset
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="vendor/squizlabs/php_codesniffer/phpcs.xsd"
+    name="BEAR.Async Coding Standard"
+>
+    <description>BEAR.Async Coding Standard</description>
+    <arg name="colors"/>
+    <arg value="s"/>
+
+    <file>src</file>
+    <file>tests</file>
+
+    <rule ref="PSR12"/>
+    <rule ref="Generic.Files.LineLength">
+        <properties>
+            <property name="lineLimit" value="200"/>
+            <property name="absoluteLineLimit" value="200"/>
+        </properties>
+    </rule>
+</ruleset>

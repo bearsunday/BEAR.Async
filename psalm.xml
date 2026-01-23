@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<psalm
+    errorLevel="1"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+    findUnusedBaselineEntry="true"
+    findUnusedCode="false"
+    autoloader="vendor/autoload.php"
+>
+    <projectFiles>
+        <directory name="src" />
+        <ignoreFiles>
+            <directory name="vendor" />
+        </ignoreFiles>
+    </projectFiles>
+    <issueHandlers>
+        <MissingOverrideAttribute errorLevel="suppress" />
+        <UndefinedClass>
+            <errorLevel type="suppress">
+                <referencedClass name="Swoole\Coroutine"/>
+                <referencedClass name="Swoole\Coroutine\WaitGroup"/>
+                <referencedClass name="parallel\Runtime"/>
+                <referencedClass name="BEAR\Resource\DataLoader\DataLoader"/>
+            </errorLevel>
+        </UndefinedClass>
+        <UndefinedPropertyFetch>
+            <errorLevel type="suppress">
+                <file name="src/AsyncLinker.php"/>
+            </errorLevel>
+        </UndefinedPropertyFetch>
+        <MixedAssignment>
+            <errorLevel type="suppress">
+                <directory name="src/Adapter"/>
+            </errorLevel>
+        </MixedAssignment>
+        <MixedMethodCall>
+            <errorLevel type="suppress">
+                <directory name="src/Adapter"/>
+            </errorLevel>
+        </MixedMethodCall>
+        <InvalidStringClass>
+            <errorLevel type="suppress">
+                <file name="src/Adapter/ParallelAsync.php"/>
+            </errorLevel>
+        </InvalidStringClass>
+        <RedundantCast>
+            <errorLevel type="suppress">
+                <file name="src/AsyncLinker.php"/>
+            </errorLevel>
+        </RedundantCast>
+        <MixedPropertyTypeCoercion>
+            <errorLevel type="suppress">
+                <file name="src/AsyncLinker.php"/>
+            </errorLevel>
+        </MixedPropertyTypeCoercion>
+    </issueHandlers>
+</psalm>

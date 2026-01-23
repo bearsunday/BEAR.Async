@@ -1,0 +1,74 @@
+name: Async Benchmark
+
+# Note: ParallelAsync adapter is not benchmarked because ext-parallel
+# requires objects passed to Runtime::run to be serializable, but
+# BEAR.Resource Request objects contain non-serializable closures.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  benchmark-sync:
+    name: Sync Baseline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+      - run: composer update --prefer-dist --no-interaction
+      - name: Run Sync Benchmark
+        run: php demo/benchmark.php sync
+
+  benchmark-amp:
+    name: Amp Parallel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+      - run: composer update --prefer-dist --no-interaction
+      - run: composer require amphp/amp --dev
+      - name: Run Amp Benchmark
+        run: |
+          set -e
+          result=$(php demo/benchmark.php amp)
+          echo "$result"
+          elapsed=$(echo "$result" | jq -e -r '.elapsed_ms')
+          if [ "$elapsed" -lt 1000 ]; then
+            echo "Parallel execution verified: ${elapsed}ms < 1000ms"
+          else
+            echo "Failed: ${elapsed}ms >= 1000ms"
+            exit 1
+          fi
+
+  benchmark-swoole:
+    name: Swoole Parallel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: swoole
+      - run: composer update --prefer-dist --no-interaction
+      - name: Run Swoole Benchmark
+        run: |
+          result=$(php -r "Co\run(function() {
+            global \$argv;
+            \$argv = ['benchmark.php', 'swoole'];
+            ob_start();
+            include 'demo/benchmark.php';
+            echo ob_get_clean();
+          });" 2>/dev/null || true)
+          echo "$result"
+          elapsed=$(echo "$result" | jq -e -r '.elapsed_ms')
+          if [ "$elapsed" -lt 1000 ]; then
+            echo "Parallel execution verified: ${elapsed}ms < 1000ms"
+          else
+            echo "Failed: ${elapsed}ms >= 1000ms"
+            exit 1
+          fi
+
