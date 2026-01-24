@@ -92,6 +92,10 @@ Level 2: Posts for each user → all post requests execute in parallel
 Level 3: Comments for each post → all comment requests execute in parallel
 ```
 
+## Documentation
+
+- [Parallel Execution Architecture and Performance Analysis](https://bearsunday.github.io/BEAR.Async/parallel-execution-architecture.html) - Deep dive into architecture, AWS instance recommendations, and cost savings projections
+
 ## Requirements
 
 - PHP 8.2+
