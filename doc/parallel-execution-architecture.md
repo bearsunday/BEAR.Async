@@ -1,3 +1,8 @@
+---
+layout: default
+title: Parallel Execution Architecture and Performance Analysis
+---
+
 # Parallel Execution Architecture and Performance Analysis
 
 This document describes the architecture of BEAR.Async's parallel execution for `#[Embed]` resources and provides performance predictions for various AWS instance types.
