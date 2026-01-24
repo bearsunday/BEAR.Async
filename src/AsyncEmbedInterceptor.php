@@ -95,7 +95,7 @@ final readonly class AsyncEmbedInterceptor implements EmbedInterceptorInterface
 
     private function getFullUri(string $uri, ResourceObject $ro): string
     {
-        if ($uri[0] === '/') {
+        if ($uri !== '' && $uri[0] === '/') {
             $uri = "{$ro->uri->scheme}://{$ro->uri->host}" . $uri;
         }
 
@@ -134,8 +134,11 @@ final readonly class AsyncEmbedInterceptor implements EmbedInterceptorInterface
     public function linkSelf(Request $request, ResourceObject $ro): void
     {
         $result = $request();
-        assert(is_array($result->body));
-        assert(is_array($ro->body));
+        if (! is_array($result->body)) {
+            return;
+        }
+
+        assert(is_array($ro->body)); // Guaranteed by prepareBody()
         /** @var mixed $value */
         foreach ($result->body as $key => $value) {
             assert(is_string($key));

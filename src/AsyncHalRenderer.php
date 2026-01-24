@@ -23,6 +23,7 @@ use function json_decode;
 use function method_exists;
 use function parse_str;
 use function parse_url;
+use function spl_object_id;
 use function ucfirst;
 
 use const JSON_THROW_ON_ERROR;
@@ -41,6 +42,8 @@ use const PHP_URL_QUERY;
  */
 final readonly class AsyncHalRenderer implements RenderInterface
 {
+    private const MAX_EMBED_DEPTH = 10;
+
     public function __construct(
         private HalLinker $linker,
         private EmbedDataLoader $loader,
@@ -61,9 +64,45 @@ final readonly class AsyncHalRenderer implements RenderInterface
         return (string) $ro->view;
     }
 
+    /**
+     * Render embedded resource with cycle detection
+     *
+     * @param array<int, bool> $visited Object IDs already visited
+     */
+    private function renderEmbedded(ResourceObject $ro, array $visited = []): string
+    {
+        $objectId = spl_object_id($ro);
+
+        // Cycle detection
+        if (isset($visited[$objectId])) {
+            return '{}';
+        }
+
+        // Depth limit check
+        if (count($visited) >= self::MAX_EMBED_DEPTH) {
+            return '{}';
+        }
+
+        $visited[$objectId] = true;
+
+        // Load futures for this embedded resource
+        $this->loader->load($this->embedRequests);
+
+        $this->renderHalWithVisited($ro, $visited);
+        $this->updateHeaders($ro);
+
+        return (string) $ro->view;
+    }
+
     public function renderHal(ResourceObject $ro): void
     {
-        [$ro, $body] = $this->valuate($ro);
+        $this->renderHalWithVisited($ro, []);
+    }
+
+    /** @param array<int, bool> $visited */
+    private function renderHalWithVisited(ResourceObject $ro, array $visited): void
+    {
+        [$ro, $body] = $this->valuate($ro, $visited);
         $method = 'on' . ucfirst($ro->uri->method);
         $hasMethod = method_exists($ro, $method);
         $annotations = $hasMethod ? (new ReflectionMethod($ro, $method))->getAnnotations() : [];
@@ -74,13 +113,14 @@ final readonly class AsyncHalRenderer implements RenderInterface
         $ro->headers['Content-Type'] = 'application/hal+json';
     }
 
-    private function valuateElements(ResourceObject $ro): void
+    /** @param array<int, bool> $visited */
+    private function valuateElements(ResourceObject $ro, array $visited): void
     {
         assert(is_array($ro->body));
         foreach ($ro->body as $key => &$embedded) {
             // Handle FutureResource - await and render
             if ($embedded instanceof FutureResource) {
-                $this->handleEmbedded($ro, $key, $embedded->await());
+                $this->handleEmbedded($ro, $key, $embedded->await(), $visited);
 
                 continue;
             }
@@ -90,11 +130,12 @@ final readonly class AsyncHalRenderer implements RenderInterface
                 continue;
             }
 
-            $this->handleEmbedded($ro, $key, $embedded());
+            $this->handleEmbedded($ro, $key, $embedded(), $visited);
         }
     }
 
-    private function handleEmbedded(ResourceObject $ro, int|string $key, ResourceObject $embeddedRo): void
+    /** @param array<int, bool> $visited */
+    private function handleEmbedded(ResourceObject $ro, int|string $key, ResourceObject $embeddedRo, array $visited): void
     {
         assert(is_array($ro->body));
 
@@ -114,7 +155,7 @@ final readonly class AsyncHalRenderer implements RenderInterface
         }
 
         unset($ro->body[$key]);
-        $view = $this->render($embeddedRo);
+        $view = $this->renderEmbedded($embeddedRo, $visited);
         $ro->body['_embedded'][$key] = json_decode($view, null, 512, JSON_THROW_ON_ERROR);
     }
 
@@ -137,8 +178,12 @@ final readonly class AsyncHalRenderer implements RenderInterface
         return $this->linker->addHalLink($body, array_values($annotations), $hal);
     }
 
-    /** @return ResourceObjectBody */
-    private function valuate(ResourceObject $ro): array
+    /**
+     * @param array<int, bool> $visited
+     *
+     * @return ResourceObjectBody
+     */
+    private function valuate(ResourceObject $ro, array $visited): array
     {
         if (is_scalar($ro->body)) {
             $ro->body = ['value' => $ro->body];
@@ -153,7 +198,7 @@ final readonly class AsyncHalRenderer implements RenderInterface
         }
 
         // Evaluate all requests in body
-        $this->valuateElements($ro);
+        $this->valuateElements($ro, $visited);
         assert(is_array($ro->body));
 
         return [$ro, $ro->body];
@@ -166,12 +211,11 @@ final readonly class AsyncHalRenderer implements RenderInterface
             return;
         }
 
-        $url = parse_url($ro->headers['Location'], PHP_URL_QUERY);
-        $isRelativePath = $url === null;
-        $path = $isRelativePath ? $ro->headers['Location'] : $url;
-        parse_str((string) $path, $query);
+        $location = $ro->headers['Location'];
+        $queryString = parse_url($location, PHP_URL_QUERY);
+        parse_str((string) $queryString, $query);
         /** @var Query $query */
 
-        $ro->headers['Location'] = $this->linker->getReverseLink($ro->headers['Location'], $query);
+        $ro->headers['Location'] = $this->linker->getReverseLink($location, $query);
     }
 }

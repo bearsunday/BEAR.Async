@@ -51,7 +51,7 @@ final class AsyncEmbedModule extends AbstractModule
     #[Override]
     protected function configure(): void
     {
-        // EmbedRequests should be singleton (request-scoped) to collect across interceptors
+        // EmbedRequests is singleton but drains after each load cycle, ensuring clean state
         $this->bind(EmbedRequests::class)->in(Scope::SINGLETON);
         $this->bind(EmbedDataLoader::class);
 

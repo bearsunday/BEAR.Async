@@ -60,8 +60,15 @@ final class EmbedDataLoader
             $tasks[$id] = new RequestTask($id, $request);
         }
 
-        // Execute via AsyncInterface
-        ($this->async)($tasks);
+        // Execute via AsyncInterface with error handling
+        try {
+            ($this->async)($tasks);
+        } catch (Throwable) {
+            // If async execution fails entirely, fall back to sequential
+            $this->loadSequentially($futures);
+
+            return;
+        }
 
         // Resolve futures with results
         foreach ($tasks as $id => $task) {

@@ -13,7 +13,6 @@ use IteratorAggregate;
 use Override;
 use ReturnTypeWillChange;
 
-use function assert;
 use function is_array;
 use function is_countable;
 
@@ -77,9 +76,8 @@ final class FutureResource implements ArrayAccess, Countable, IteratorAggregate
     public function offsetGet($offset): mixed
     {
         $result = $this->await();
-        assert(is_array($result->body));
 
-        return $result->body[$offset] ?? null;
+        return is_array($result->body) ? $result->body[$offset] ?? null : null;
     }
 
     /** @param string $offset */
