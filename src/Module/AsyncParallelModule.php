@@ -12,6 +12,7 @@ use BEAR\Async\Qualifier\AppNamespace;
 use BEAR\Async\Qualifier\Context;
 use BEAR\Async\Qualifier\PoolSize;
 use BEAR\Resource\LinkerInterface;
+use Override;
 use Ray\Di\AbstractModule;
 
 use function exec;
@@ -26,6 +27,10 @@ use function trim;
  * This module uses PHP's parallel extension for true parallel execution
  * across multiple threads. Each thread maintains its own bootstrapped
  * application instance.
+ *
+ * Features:
+ * - Parallel linkCrawl() execution via AsyncLinker
+ * - Parallel #[Embed] execution via AsyncEmbedModule
  *
  * Requirements:
  * - PHP built with ZTS (Zend Thread Safety)
@@ -67,6 +72,7 @@ final class AsyncParallelModule extends AbstractModule
         parent::__construct();
     }
 
+    #[Override]
     protected function configure(): void
     {
         $this->bind()->annotatedWith(AppNamespace::class)->toInstance($this->namespace);
@@ -75,6 +81,9 @@ final class AsyncParallelModule extends AbstractModule
         $this->bind()->annotatedWith(PoolSize::class)->toInstance($this->poolSize);
         $this->bind(AsyncInterface::class)->to(ParallelAsync::class);
         $this->bind(LinkerInterface::class)->to(AsyncLinker::class);
+
+        // Install AsyncEmbedModule for parallel #[Embed] support
+        $this->install(new AsyncEmbedModule());
     }
 
     /** @return positive-int */

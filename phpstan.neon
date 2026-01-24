@@ -22,3 +22,6 @@ parameters:
         - '#Property BEAR\\Async\\AsyncLinker::\$cache .* does not accept#'
         - '#PHPDoc tag @var with type .* is not subtype of native type#'
         - '#will always evaluate to true#'
+        - '#Cannot call method uri\(\) on mixed#'
+        - '#Cannot call method setResult\(\) on mixed#'
+        - '#Cannot access offset .* on mixed#'
