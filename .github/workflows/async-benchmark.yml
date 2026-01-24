@@ -44,3 +44,38 @@ jobs:
             echo "Failed: ${elapsed}ms >= 1000ms"
             exit 1
           fi
+
+  benchmark-parallel:
+    name: Parallel (ext-parallel)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: parallel
+        env:
+          phpts: zts
+      - run: composer update --prefer-dist --no-interaction
+      - name: Run Parallel Benchmark
+        run: php demo/sleep-benchmark.php parallel
+
+  integration-test:
+    name: Integration Test (BEAR.Sunday + ext-parallel)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: parallel
+        env:
+          phpts: zts
+      - name: Install root dependencies
+        run: composer update --prefer-dist --no-interaction
+      - name: Install demo-parallel dependencies
+        working-directory: demo-parallel
+        run: composer install --prefer-dist --no-interaction
+      - name: Run Integration Benchmark
+        working-directory: demo-parallel
+        run: php bin/benchmark.php 3
