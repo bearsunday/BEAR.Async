@@ -45,16 +45,6 @@
                 <file name="src/PdoPool.php"/>
             </errorLevel>
         </MixedAssignment>
-        <InvalidFunctionCall>
-            <errorLevel type="suppress">
-                <file name="src/Adapter/ParallelAsync.php"/>
-            </errorLevel>
-        </InvalidFunctionCall>
-        <MixedPropertyFetch>
-            <errorLevel type="suppress">
-                <file name="src/Adapter/ParallelAsync.php"/>
-            </errorLevel>
-        </MixedPropertyFetch>
         <RedundantCast>
             <errorLevel type="suppress">
                 <file name="src/AsyncLinker.php"/>

@@ -111,7 +111,7 @@ PHP;
                     $ro = $resource->get($uri, $query);
 
                     /** @var array<string, mixed>|null */
-                    return $ro()->body; // @phpstan-ignore-line callable.nonCallable, property.nonObject
+                    return $ro->body;
                 },
                 [$uri, $query],
             );
