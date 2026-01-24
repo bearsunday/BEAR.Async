@@ -10,6 +10,7 @@ use BEAR\Async\AsyncLinker;
 use BEAR\Resource\LinkerInterface;
 use Override;
 use Ray\Di\AbstractModule;
+use Ray\Di\Scope;
 
 /**
  * AsyncSwooleModule provides parallel execution using Swoole coroutines
@@ -40,7 +41,7 @@ final class AsyncSwooleModule extends AbstractModule
     #[Override]
     protected function configure(): void
     {
-        $this->bind(AsyncInterface::class)->to(SwooleAsync::class);
+        $this->bind(AsyncInterface::class)->to(SwooleAsync::class)->in(Scope::SINGLETON);
         $this->bind(LinkerInterface::class)->to(AsyncLinker::class);
 
         // Install AsyncEmbedModule for parallel #[Embed] support

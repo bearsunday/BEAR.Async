@@ -14,6 +14,7 @@ use BEAR\Async\Qualifier\PoolSize;
 use BEAR\Resource\LinkerInterface;
 use Override;
 use Ray\Di\AbstractModule;
+use Ray\Di\Scope;
 
 use function exec;
 use function is_numeric;
@@ -79,7 +80,8 @@ final class AsyncParallelModule extends AbstractModule
         $this->bind()->annotatedWith(Context::class)->toInstance($this->context);
         $this->bind()->annotatedWith(AppDir::class)->toInstance($this->appDir);
         $this->bind()->annotatedWith(PoolSize::class)->toInstance($this->poolSize);
-        $this->bind(AsyncInterface::class)->to(ParallelAsync::class);
+        // ParallelAsync must be singleton to reuse thread pool across requests
+        $this->bind(AsyncInterface::class)->to(ParallelAsync::class)->in(Scope::SINGLETON);
         $this->bind(LinkerInterface::class)->to(AsyncLinker::class);
 
         // Install AsyncEmbedModule for parallel #[Embed] support
