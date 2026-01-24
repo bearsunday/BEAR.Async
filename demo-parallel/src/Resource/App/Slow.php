@@ -13,7 +13,7 @@ class Slow extends ResourceObject
 {
     public function onGet(int $id = 0): static
     {
-        usleep(5000); // 5ms
+        usleep(50000); // 50ms - long enough to amortize thread communication overhead
         $this->body = ['id' => $id, 'time' => microtime(true)];
 
         return $this;

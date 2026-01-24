@@ -11,8 +11,8 @@ $iterations = (int) ($argv[1] ?? 3);
 
 echo "BEAR.Async Parallel Benchmark\n";
 echo "==============================\n";
-echo "10 embedded resources × 5ms delay each\n";
-echo "Expected: Sync ~50ms, Parallel ~5ms\n\n";
+echo "10 embedded resources × 50ms delay each\n";
+echo "Expected: Sync ~500ms, Parallel ~150ms (with 4 workers)\n\n";
 
 // Sync execution (prod-hal-app context - no parallel module)
 echo "Sync execution (prod-hal-app)...\n";
