@@ -11,7 +11,7 @@
     ],
     "require": {
         "php": "^8.2",
-        "bear/resource": "^1.17",
+        "bear/resource": "^1.30",
         "ray/di": "^2.18"
     },
     "require-dev": {
@@ -31,7 +31,8 @@
     "autoload-dev": {
         "psr-4": {
             "BEAR\\Async\\": "tests/",
-            "BEAR\\Async\\Demo\\": "demo/"
+            "BEAR\\Async\\Demo\\": "demo/src/",
+            "BEAR\\Async\\Demo\\Resource\\": "demo/Resource/"
         }
     },
     "scripts": {
