@@ -26,14 +26,16 @@
     },
     "autoload": {
         "psr-4": {
-            "BEAR\\Async\\": "src/"
+            "BEAR\\Async\\": "src/",
+            "BEAR\\Projection\\": "src-projection/"
         }
     },
     "autoload-dev": {
         "psr-4": {
             "BEAR\\Async\\": "tests/",
             "BEAR\\Async\\Demo\\": "demo/src/",
-            "BEAR\\Async\\Demo\\Resource\\": "demo/Resource/"
+            "BEAR\\Async\\Demo\\Resource\\": "demo/Resource/",
+            "BEAR\\Projection\\": "tests/Projection/"
         }
     },
     "scripts": {
