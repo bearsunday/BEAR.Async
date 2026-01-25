@@ -4,6 +4,6 @@ declare(strict_types=1);
 
 namespace BEAR\Async\Exception;
 
-class LogicException extends \LogicException
+final class ExtensionNotLoadedException extends LogicException
 {
 }

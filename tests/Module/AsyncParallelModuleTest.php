@@ -6,9 +6,11 @@ namespace BEAR\Async\Module;
 
 use BEAR\Async\Adapter\ParallelAsync;
 use BEAR\Async\AsyncInterface;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
 use Ray\Di\Injector;
 
+#[RequiresPhpExtension('parallel')]
 class AsyncParallelModuleTest extends TestCase
 {
     public function testModuleCanBeInstantiated(): void

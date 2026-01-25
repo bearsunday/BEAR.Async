@@ -7,7 +7,7 @@ namespace BEAR\Async\Qualifier;
 use Attribute;
 use Ray\Di\Di\Qualifier;
 
-#[Attribute(Attribute::TARGET_PARAMETER)]
+#[Attribute(Attribute::TARGET_METHOD | Attribute::TARGET_PARAMETER)]
 #[Qualifier]
 final class PoolSize
 {

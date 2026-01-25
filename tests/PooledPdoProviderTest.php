@@ -11,13 +11,13 @@ use Swoole\Coroutine;
 use function Swoole\Coroutine\run;
 
 #[RequiresPhpExtension('swoole')]
-class PdoPoolProviderTest extends TestCase
+class PooledPdoProviderTest extends TestCase
 {
     public function testGetReturnsPdo(): void
     {
         run(function (): void {
             $pool = new PdoPool('sqlite::memory:', '', '', 1);
-            $provider = new PdoPoolProvider($pool);
+            $provider = new PooledPdoProvider($pool);
 
             $pdo = $provider->get();
 
@@ -32,7 +32,7 @@ class PdoPoolProviderTest extends TestCase
 
         run(function () use (&$pdoFromProvider, &$pdoFromPool): void {
             $pool = new PdoPool('sqlite::memory:', '', '', 1);
-            $provider = new PdoPoolProvider($pool);
+            $provider = new PooledPdoProvider($pool);
 
             Coroutine::create(function () use ($provider, &$pdoFromProvider): void {
                 $pdoFromProvider = $provider->get();
