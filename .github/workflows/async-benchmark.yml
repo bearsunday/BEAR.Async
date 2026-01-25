@@ -19,14 +19,20 @@ jobs:
 
       - name: Wait for MySQL
         run: |
+          ready=false
           for i in {1..30}; do
             if docker compose exec -T mysql mysqladmin ping -h localhost -uroot 2>/dev/null; then
               echo "MySQL is ready"
+              ready=true
               break
             fi
             echo "Waiting for MySQL... ($i/30)"
             sleep 2
           done
+          if [ "$ready" != "true" ]; then
+            echo "MySQL failed to become ready"
+            exit 1
+          fi
 
       - name: Install main dependencies
         run: docker compose run --rm php composer install --prefer-dist --no-interaction

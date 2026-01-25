@@ -4,6 +4,7 @@
 /.phpunit.cache/
 /vendor/
 /build/
+/var/db/
 /var/log/*
 !var/log/.gitkeep
 /var/tmp/*
