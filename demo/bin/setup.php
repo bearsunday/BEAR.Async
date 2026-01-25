@@ -14,6 +14,11 @@ if (! is_dir($dbDir)) {
 $dbPath = $dbDir . '/blog.sqlite';
 $sqlDir = dirname(__DIR__) . '/sql';
 
+// Remove existing database for clean setup
+if (file_exists($dbPath)) {
+    unlink($dbPath);
+}
+
 echo "Initializing database...\n";
 
 $pdo = new PDO('sqlite:' . $dbPath);
