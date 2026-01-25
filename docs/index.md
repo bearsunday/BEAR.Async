@@ -31,7 +31,7 @@ For Swoole HTTP Server environments using coroutines.
 
 ```php
 $this->install(new AsyncSwooleModule());
-$this->install(new PdoPoolModule($dsn, $user, $password));
+$this->install(new PdoPoolModule($dsn, $user, $pass));
 ```
 
 ## Documentation
