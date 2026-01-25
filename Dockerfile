@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     libcurl4-openssl-dev \
     libssl-dev \
-    && docker-php-ext-install zip pdo pdo_mysql
+    && docker-php-ext-install zip pdo pdo_mysql sockets
 
 # Install parallel extension
 RUN pecl install parallel && docker-php-ext-enable parallel
