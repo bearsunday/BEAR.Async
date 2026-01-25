@@ -11,7 +11,7 @@ This document describes the architecture of BEAR.Async's parallel execution for 
 
 ### How Parallel Execution Works
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Main PHP Process                          │
 │                                                                  │
@@ -65,7 +65,7 @@ This document describes the architecture of BEAR.Async's parallel execution for 
 
 ### Initialization (Once per PHP Process)
 
-```
+```text
 PHP-FPM Worker Start
        │
        ▼
@@ -85,7 +85,7 @@ Pool Ready (reused for all subsequent requests)
 
 ### Request Processing (Every Request)
 
-```
+```text
 Request with 10 Embeds
        │
        ▼
@@ -123,7 +123,7 @@ Collect Results & Resolve Futures
 
 **Amortized Cost Example:**
 
-```
+```text
 Bootstrap: 88ms (4 workers × 22ms)
 Requests per FPM worker: ~1,000
 
@@ -138,7 +138,7 @@ Parallel execution is particularly effective for I/O-bound operations because:
 2. **I/O waits can overlap** - Multiple queries execute simultaneously
 3. **No resource contention** - Each worker has its own database connection
 
-```
+```text
 Sequential (10 queries × 10ms each):
 CPU: [Q1]----[Q2]----[Q3]----...[Q10]---- = 100ms
       ↑wait  ↑wait  ↑wait       ↑wait
@@ -170,7 +170,7 @@ A typical magazine article page with the following embeds:
 | recommendations | Personalized recommendations | 25ms |
 | ads | Ad placements | 5ms |
 
-**Total: 10 embeds, ~86ms I/O time**
+Total: 10 embeds, ~86ms I/O time.
 
 ### AWS Instance Performance Comparison
 
@@ -193,7 +193,7 @@ Assumptions:
 - Average 56ms saved per request (96ms → 40ms)
 - Server cost: EC2 c5.4xlarge at $0.68/hour
 
-```
+```text
 Time saved: 100M × 56ms = 5,600,000 seconds = 1,556 hours/month
 
 Server cost reduction scenarios:

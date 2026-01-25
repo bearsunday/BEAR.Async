@@ -16,7 +16,7 @@ use Swoole\Coroutine;
  * returns it when the coroutine ends using Swoole's defer() function.
  *
  * IMPORTANT: This provider must be used within a Swoole coroutine context.
- * Calling get() outside a coroutine will throw a RuntimeException.
+ * Calling get() outside a coroutine will throw a NotInCoroutineException.
  *
  * @implements ProviderInterface<PDO>
  */

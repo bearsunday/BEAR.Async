@@ -46,6 +46,6 @@ final class SwooleAsync implements AsyncInterface
 
     public function isAvailable(): bool
     {
-        return extension_loaded('swoole') && Coroutine::getCid() > 0;
+        return (extension_loaded('swoole') || extension_loaded('openswoole')) && Coroutine::getCid() > 0;
     }
 }

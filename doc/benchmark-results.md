@@ -76,7 +76,7 @@ Actual speedup varies based on:
 
 #### Use AsyncParallelModule when:
 - Running under PHP-FPM or Apache
-- Each request needs isolated memory
+- Each request requires isolated memory
 - No special PDO connection management needed
 
 #### Use AsyncSwooleModule when:

@@ -53,7 +53,7 @@ final class PdoPoolModule extends AbstractModule
 
     protected function configure(): void
     {
-        // Bind connection parameters for PdoPoolFactory
+        // Bind connection parameters for PdoPoolProvider
         $this->bind()->annotatedWith('pdo_pool_dsn')->toInstance($this->dsn);
         $this->bind()->annotatedWith('pdo_pool_user')->toInstance($this->user);
         $this->bind()->annotatedWith('pdo_pool_pass')->toInstance($this->pass);
