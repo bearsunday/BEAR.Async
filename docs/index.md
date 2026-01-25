@@ -1,8 +1,6 @@
 ---
-layout: docs-en
+layout: default
 title: BEAR.Async Documentation
-category: Manual
-permalink: /manuals/1.0/en/
 ---
 
 # BEAR.Async

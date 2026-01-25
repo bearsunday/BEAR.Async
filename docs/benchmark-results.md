@@ -1,8 +1,6 @@
 ---
-layout: docs-en
+layout: default
 title: Benchmark Results
-category: Reference
-permalink: /manuals/1.0/en/benchmark-results.html
 ---
 
 # Benchmark Results
