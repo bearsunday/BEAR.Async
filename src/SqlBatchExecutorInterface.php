@@ -14,9 +14,11 @@ namespace BEAR\Async;
 interface SqlBatchExecutorInterface
 {
     /**
-     * Execute all queries in the batch
+     * Execute all queries
+     *
+     * @param array<string, array{string, array<string, mixed>}> $queries
      *
      * @return array<string, list<array<string, mixed>>> Results map [key => rows]
      */
-    public function execute(SqlBatch $batch): array;
+    public function execute(array $queries): array;
 }

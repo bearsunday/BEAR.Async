@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace BEAR\Async\Mysqli;
 
-use BEAR\Async\SqlBatch;
 use BEAR\Async\SqlBatchExecutorInterface;
 use mysqli;
 use Override;
@@ -27,11 +26,15 @@ final class SyncBatchExecutor implements SqlBatchExecutorInterface
     ) {
     }
 
-    /** @return array<string, list<array<string, mixed>>> */
+    /**
+     * @param array<string, array{string, array<string, mixed>}> $queries
+     *
+     * @return array<string, list<array<string, mixed>>>
+     */
     #[Override]
-    public function execute(SqlBatch $batch): array
+    public function execute(array $queries): array
     {
-        if ($batch->isEmpty()) {
+        if ($queries === []) {
             return [];
         }
 
@@ -39,7 +42,7 @@ final class SyncBatchExecutor implements SqlBatchExecutorInterface
         $mysqli = $this->factory->create();
 
         try {
-            foreach ($batch->getQueries() as $key => [$sql, $params]) {
+            foreach ($queries as $key => [$sql, $params]) {
                 $results[$key] = $this->executeQuery($mysqli, $sql, $params);
             }
         } finally {

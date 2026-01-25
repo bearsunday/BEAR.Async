@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace BEAR\Async\Mysqli;
 
-use BEAR\Async\SqlBatch;
 use BEAR\Async\SqlBatchExecutorInterface;
 use mysqli;
 use Override;
@@ -23,11 +22,10 @@ use function usleep;
  * operations are connection-bound.
  *
  * Usage:
- *   $batch = new SqlBatch([
+ *   $results = (new SqlBatch($executor, [
  *       'users' => ['SELECT * FROM users WHERE id = :id', ['id' => 1]],
  *       'posts' => ['SELECT * FROM posts WHERE user_id = :user_id', ['user_id' => 1]],
- *   ]);
- *   $results = $executor->execute($batch);
+ *   ]))();
  */
 final class MysqliBatchExecutor implements SqlBatchExecutorInterface
 {
@@ -43,16 +41,17 @@ final class MysqliBatchExecutor implements SqlBatchExecutorInterface
     /**
      * Execute multiple queries asynchronously
      *
+     * @param array<string, array{string, array<string, mixed>}> $queries
+     *
      * @return array<string, list<array<string, mixed>>> Results map [key => rows]
      */
     #[Override]
-    public function execute(SqlBatch $batch): array
+    public function execute(array $queries): array
     {
-        if ($batch->isEmpty()) {
+        if ($queries === []) {
             return [];
         }
 
-        $queries = $batch->getQueries();
         $connections = $this->startAsyncQueries($queries);
         $results = $this->waitForResults($connections, array_keys($queries));
 
