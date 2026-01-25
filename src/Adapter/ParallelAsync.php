@@ -83,6 +83,10 @@ PHP;
 
     public function __invoke(array $tasks): void
     {
+        if ($tasks === []) {
+            return;
+        }
+
         if (! $this->initialized) {
             $this->initializePool();
             $this->initialized = true;
