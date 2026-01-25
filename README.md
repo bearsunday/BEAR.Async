@@ -49,6 +49,7 @@ For applications already running on Swoole HTTP Server with high concurrency req
 
 ```php
 use BEAR\Async\Module\AsyncSwooleModule;
+use BEAR\Async\Module\PdoPoolEnvModule;
 use Ray\Di\AbstractModule;
 
 class AppModule extends AbstractModule
@@ -57,7 +58,11 @@ class AppModule extends AbstractModule
     {
         $this->install(new PackageModule());
         $this->install(new AsyncSwooleModule());
-        $this->install(new PdoPoolModule($dsn, $user, $password)); // Connection pool required
+        $this->install(new PdoPoolEnvModule(
+            'PDO_DSN',
+            'PDO_USER',
+            'PDO_PASSWORD',
+        )); // Connection pool required
     }
 }
 ```
