@@ -26,6 +26,10 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 // Load schema
 $schema = file_get_contents($sqlDir . '/schema.sql');
+if ($schema === false) {
+    throw new RuntimeException('Failed to read schema.sql');
+}
+
 // Remove SQL comments
 $schema = preg_replace('/^--.*$/m', '', $schema);
 // Convert MySQL syntax to SQLite
@@ -47,6 +51,10 @@ foreach (explode(';', $schema) as $statement) {
 
 // Load seed data
 $seed = file_get_contents($sqlDir . '/seed.sql');
+if ($seed === false) {
+    throw new RuntimeException('Failed to read seed.sql');
+}
+
 // Remove SQL comments
 $seed = preg_replace('/^--.*$/m', '', $seed);
 foreach (explode(';', $seed) as $statement) {
