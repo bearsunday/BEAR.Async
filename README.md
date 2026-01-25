@@ -158,13 +158,12 @@ class MyService
 
     public function getData(int $userId): array
     {
-        $batch = new SqlBatch([
+        // Execute multiple queries in parallel with invocable pattern
+        $results = (new SqlBatch($this->executor, [
             'user' => ['SELECT * FROM users WHERE id = :id', ['id' => $userId]],
             'posts' => ['SELECT * FROM posts WHERE user_id = :user_id', ['user_id' => $userId]],
             'comments' => ['SELECT * FROM comments WHERE user_id = :user_id', ['user_id' => $userId]],
-        ]);
-
-        $results = $this->executor->execute($batch);
+        ]))();
 
         return [
             'user' => $results['user'][0] ?? null,
@@ -179,7 +178,7 @@ class MyService
 
 | Class | Description |
 |-------|-------------|
-| `SqlBatch` | Immutable value object holding queries with named parameters |
+| `SqlBatch` | Invocable value object with `__invoke()` for one-line execution |
 | `SqlBatchExecutorInterface` | Stateless executor interface (singleton-safe) |
 | `MysqliBatchExecutor` | Async execution using `mysqli_poll` |
 | `SyncBatchExecutor` | Sequential execution for testing/fallback |
