@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BEAR\Async\Projection;
 
 use BEAR\Async\SqlBatchExecutorInterface;
+use BEAR\Projection\Exception\SqlFileNotFoundException;
 use BEAR\Projection\QueryBatchCoordinator;
 use BEAR\Projection\QueryResourceObject;
 use BEAR\Resource\Uri;
@@ -201,5 +202,33 @@ class QueryBatchCoordinatorTest extends TestCase
         $resource->uri = new Uri('app://self' . $path, $query);
 
         return $resource;
+    }
+
+    public function testPathTraversalAttackIsRejected(): void
+    {
+        $executor = $this->createMockExecutor([]);
+        $coordinator = new QueryBatchCoordinator($executor, $this->sqlDir);
+        $resource = $this->createQueryResourceWithUri($coordinator, '/../../../etc/passwd', []);
+
+        $this->expectException(SqlFileNotFoundException::class);
+        $coordinator->executeAll();
+    }
+
+    public function testNonExistentSqlFileThrowsException(): void
+    {
+        $executor = $this->createMockExecutor([]);
+        $coordinator = new QueryBatchCoordinator($executor, $this->sqlDir);
+        $resource = $this->createQueryResourceWithUri($coordinator, '/nonexistent', []);
+
+        $this->expectException(SqlFileNotFoundException::class);
+        $coordinator->executeAll();
+    }
+
+    public function testNonExistentSqlDirThrowsException(): void
+    {
+        $executor = $this->createMockExecutor([]);
+
+        $this->expectException(SqlFileNotFoundException::class);
+        new QueryBatchCoordinator($executor, '/nonexistent/directory');
     }
 }
