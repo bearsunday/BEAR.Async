@@ -12,6 +12,7 @@ use Ray\Di\AbstractModule;
 use Ray\Di\Scope;
 
 use function getenv;
+use function sprintf;
 
 /**
  * DI module for mysqli configuration via environment variables
@@ -49,10 +50,10 @@ final class MysqliEnvModule extends AbstractModule
 
     protected function configure(): void
     {
-        $host = (string) getenv($this->hostEnv);
-        $user = (string) getenv($this->userEnv);
-        $password = (string) getenv($this->passwordEnv);
-        $database = (string) getenv($this->databaseEnv);
+        $host = $this->getRequiredEnv($this->hostEnv);
+        $user = $this->getRequiredEnv($this->userEnv);
+        $password = $this->getRequiredEnv($this->passwordEnv);
+        $database = $this->getRequiredEnv($this->databaseEnv);
 
         $port = $this->portEnv !== '' ? (int) getenv($this->portEnv) : null;
         $socket = $this->socketEnv !== '' ? (string) getenv($this->socketEnv) : '';
@@ -72,5 +73,20 @@ final class MysqliEnvModule extends AbstractModule
         $this->bind(MysqliParamBinder::class)->in(Scope::SINGLETON);
         $this->bind(MysqliBatchExecutor::class)->in(Scope::SINGLETON);
         $this->bind(SqlBatchExecutorInterface::class)->to(MysqliBatchExecutor::class)->in(Scope::SINGLETON);
+    }
+
+    /**
+     * @throws \BEAR\Async\Exception\MissingEnvException
+     */
+    private function getRequiredEnv(string $name): string
+    {
+        $value = getenv($name);
+        if ($value === false) {
+            throw new \BEAR\Async\Exception\MissingEnvException(
+                sprintf('Required environment variable "%s" is not set', $name),
+            );
+        }
+
+        return $value;
     }
 }

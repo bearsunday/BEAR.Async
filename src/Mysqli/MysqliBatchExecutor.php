@@ -10,9 +10,11 @@ use Override;
 
 use function array_fill_keys;
 use function array_keys;
-use function count;
 use function mysqli_poll;
 use function usleep;
+
+use const MYSQLI_ASSOC;
+use const MYSQLI_ASYNC;
 
 /**
  * Executes multiple mysqli queries asynchronously using mysqli_poll
@@ -52,65 +54,91 @@ final class MysqliBatchExecutor implements SqlBatchExecutorInterface
             return [];
         }
 
-        $connections = $this->startAsyncQueries($queries);
-        $results = $this->waitForResults($connections, array_keys($queries));
+        [$asyncConnections, $syncResults] = $this->startQueries($queries);
+        $asyncResults = $this->waitForResults($asyncConnections, array_keys($asyncConnections));
 
-        $this->closeConnections($connections);
+        $this->closeConnections($asyncConnections);
+
+        // Merge sync and async results, preserving original order
+        $results = [];
+        foreach (array_keys($queries) as $key) {
+            $results[$key] = $syncResults[$key] ?? $asyncResults[$key] ?? [];
+        }
 
         return $results;
     }
 
     /**
-     * Start all queries asynchronously
+     * Start all queries (async for simple, sync for parameterized)
      *
      * @param array<string, array{string, array<string, mixed>}> $queries
      *
-     * @return array<string, mysqli>
+     * @return array{array<string, mysqli>, array<string, list<array<string, mixed>>>}
      */
-    private function startAsyncQueries(array $queries): array
+    private function startQueries(array $queries): array
     {
-        $connections = [];
+        /** @var array<string, mysqli> $asyncConnections */
+        $asyncConnections = [];
+        /** @var array<string, list<array<string, mixed>>> $syncResults */
+        $syncResults = [];
 
         foreach ($queries as $key => [$sql, $params]) {
-            $mysqli = $this->factory->create();
-            $connections[$key] = $mysqli;
-
-            $convertedSql = $sql;
             if ($params !== []) {
-                [$convertedSql] = $this->binder->convertNamedToPositional($sql, $params);
-                $types = $this->binder->buildTypeString(array_values($params));
-                $this->executeWithParams($mysqli, $convertedSql, $types, $params);
+                // Parameterized queries: execute synchronously (mysqli limitation)
+                $syncResults[$key] = $this->executeSyncWithParams($sql, $params);
             } else {
-                $mysqli->query($convertedSql, MYSQLI_ASYNC);
+                // Simple queries: execute asynchronously
+                $mysqli = $this->factory->create();
+                $asyncConnections[$key] = $mysqli;
+                $mysqli->query($sql, MYSQLI_ASYNC);
             }
         }
 
-        return $connections;
+        return [$asyncConnections, $syncResults];
     }
 
     /**
-     * Execute query with bound parameters asynchronously
+     * Execute parameterized query synchronously
      *
      * @param array<string, mixed> $params
+     *
+     * @return list<array<string, mixed>>
      */
-    private function executeWithParams(mysqli $mysqli, string $sql, string $types, array $params): void
+    private function executeSyncWithParams(string $sql, array $params): array
     {
-        $stmt = $mysqli->prepare($sql);
-        if ($stmt === false) {
-            return;
+        $mysqli = $this->factory->create();
+
+        try {
+            [$convertedSql, $orderedParams] = $this->binder->convertNamedToPositional($sql, $params);
+            $types = $this->binder->buildTypeString($orderedParams);
+
+            $stmt = $mysqli->prepare($convertedSql);
+            if ($stmt === false) {
+                return [];
+            }
+
+            if ($types !== '') {
+                $stmt->bind_param($types, ...$orderedParams);
+            }
+
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            if ($result === false) {
+                $stmt->close();
+
+                return [];
+            }
+
+            /** @var list<array<string, mixed>> $rows */
+            $rows = $result->fetch_all(MYSQLI_ASSOC);
+            $result->free();
+            $stmt->close();
+
+            return $rows;
+        } finally {
+            $mysqli->close();
         }
-
-        $values = array_values($params);
-        if ($types !== '') {
-            $stmt->bind_param($types, ...$values);
-        }
-
-        $stmt->execute();
-        $stmt->close();
-
-        // Note: For async with params, we need to use a different approach
-        // mysqli prepared statements don't support MYSQLI_ASYNC directly
-        // We fall back to synchronous execution for parameterized queries
     }
 
     /**
@@ -126,6 +154,10 @@ final class MysqliBatchExecutor implements SqlBatchExecutorInterface
      */
     private function waitForResults(array $connections, array $keys): array
     {
+        if ($connections === []) {
+            return [];
+        }
+
         /** @var array<string, list<array<string, mixed>>> $results */
         $results = array_fill_keys($keys, []);
         $pending = $connections;

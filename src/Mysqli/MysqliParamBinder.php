@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 namespace BEAR\Async\Mysqli;
 
+use InvalidArgumentException;
 use mysqli_stmt;
+
+use function array_key_exists;
+use function count;
+use function sprintf;
+use function str_replace;
 
 /**
  * Binds parameters to mysqli prepared statements
@@ -39,23 +45,71 @@ final class MysqliParamBinder
      *
      * @return array{string, list<mixed>} Converted SQL and ordered parameter values
      *
+     * @throws InvalidArgumentException If a parameter is missing
+     *
      * @psalm-suppress MixedAssignment Parameter values are intentionally mixed
      */
     public function convertNamedToPositional(string $sql, array $params): array
     {
-        // First, find all named placeholders in order
-        preg_match_all('/:([a-zA-Z_][a-zA-Z0-9_]*)/', $sql, $matches);
+        // Extract quoted strings to protect them from replacement
+        $quotedStrings = [];
+        $placeholder = "\x00QUOTED_%d\x00";
+        $protectedSql = $this->protectQuotedStrings($sql, $quotedStrings, $placeholder);
+
+        // Find all named placeholders in order (outside quoted strings)
+        preg_match_all('/:([a-zA-Z_][a-zA-Z0-9_]*)/', $protectedSql, $matches);
 
         /** @var list<mixed> $orderedParams */
         $orderedParams = [];
         foreach ($matches[1] as $name) {
-            $orderedParams[] = $params[$name] ?? null;
+            if (! array_key_exists($name, $params)) {
+                throw new InvalidArgumentException(
+                    sprintf('Missing parameter: %s', $name),
+                );
+            }
+
+            $orderedParams[] = $params[$name];
         }
 
         // Replace all named placeholders with positional ones
-        $convertedSql = (string) preg_replace('/:([a-zA-Z_][a-zA-Z0-9_]*)/', '?', $sql);
+        $convertedSql = (string) preg_replace('/:([a-zA-Z_][a-zA-Z0-9_]*)/', '?', $protectedSql);
+
+        // Restore quoted strings
+        $convertedSql = $this->restoreQuotedStrings($convertedSql, $quotedStrings, $placeholder);
 
         return [$convertedSql, $orderedParams];
+    }
+
+    /**
+     * Protect quoted strings from placeholder replacement
+     *
+     * @param array<int, string> $quotedStrings
+     */
+    private function protectQuotedStrings(string $sql, array &$quotedStrings, string $placeholder): string
+    {
+        // Match single-quoted and double-quoted strings (handling escaped quotes)
+        $pattern = "/('(?:[^'\\\\]|\\\\.)*'|\"(?:[^\"\\\\]|\\\\.)*\")/s";
+
+        return (string) preg_replace_callback($pattern, static function (array $matches) use (&$quotedStrings, $placeholder): string {
+            $index = count($quotedStrings);
+            $quotedStrings[$index] = $matches[0];
+
+            return sprintf($placeholder, $index);
+        }, $sql);
+    }
+
+    /**
+     * Restore protected quoted strings
+     *
+     * @param array<int, string> $quotedStrings
+     */
+    private function restoreQuotedStrings(string $sql, array $quotedStrings, string $placeholder): string
+    {
+        foreach ($quotedStrings as $index => $quoted) {
+            $sql = str_replace(sprintf($placeholder, $index), $quoted, $sql);
+        }
+
+        return $sql;
     }
 
     /**

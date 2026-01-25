@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BEAR\Async\Mysqli;
 
+use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
 class MysqliParamBinderTest extends TestCase
@@ -112,5 +113,50 @@ class MysqliParamBinderTest extends TestCase
 
         // Booleans are treated as strings
         $this->assertSame('ss', $types);
+    }
+
+    public function testConvertNamedToPositionalPreservesQuotedStrings(): void
+    {
+        // Colons inside quoted strings should NOT be replaced
+        $sql = "SELECT * FROM users WHERE created_at > '2024-01-01 10:00:00' AND id = :id";
+        $params = ['id' => 1];
+
+        [$convertedSql, $orderedParams] = $this->binder->convertNamedToPositional($sql, $params);
+
+        $this->assertSame("SELECT * FROM users WHERE created_at > '2024-01-01 10:00:00' AND id = ?", $convertedSql);
+        $this->assertSame([1], $orderedParams);
+    }
+
+    public function testConvertNamedToPositionalPreservesDoubleQuotedStrings(): void
+    {
+        $sql = 'SELECT * FROM users WHERE url = "https://example.com" AND id = :id';
+        $params = ['id' => 1];
+
+        [$convertedSql, $orderedParams] = $this->binder->convertNamedToPositional($sql, $params);
+
+        $this->assertSame('SELECT * FROM users WHERE url = "https://example.com" AND id = ?', $convertedSql);
+        $this->assertSame([1], $orderedParams);
+    }
+
+    public function testConvertNamedToPositionalWithEscapedQuotes(): void
+    {
+        $sql = "SELECT * FROM users WHERE name = 'O\\'Brien' AND id = :id";
+        $params = ['id' => 1];
+
+        [$convertedSql, $orderedParams] = $this->binder->convertNamedToPositional($sql, $params);
+
+        $this->assertSame("SELECT * FROM users WHERE name = 'O\\'Brien' AND id = ?", $convertedSql);
+        $this->assertSame([1], $orderedParams);
+    }
+
+    public function testConvertNamedToPositionalThrowsOnMissingParameter(): void
+    {
+        $sql = 'SELECT * FROM users WHERE id = :id AND name = :name';
+        $params = ['id' => 1]; // Missing 'name' parameter
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Missing parameter: name');
+
+        $this->binder->convertNamedToPositional($sql, $params);
     }
 }

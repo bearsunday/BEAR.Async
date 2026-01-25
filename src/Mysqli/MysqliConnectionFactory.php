@@ -44,21 +44,25 @@ final class MysqliConnectionFactory
         $mysqli = new mysqli();
         $mysqli->options(MYSQLI_OPT_CONNECT_TIMEOUT, 10);
 
-        $connected = @$mysqli->real_connect(
-            $this->host,
-            $this->user,
-            $this->pass,
-            $this->database,
-            $this->port ?? 3306,
-            $this->socket,
-            MYSQLI_CLIENT_FOUND_ROWS,
-        );
+        try {
+            $connected = $mysqli->real_connect(
+                $this->host,
+                $this->user,
+                $this->pass,
+                $this->database,
+                $this->port ?? 3306,
+                $this->socket,
+                MYSQLI_CLIENT_FOUND_ROWS,
+            );
 
-        if (! $connected) {
-            throw new MysqliConnectionException($mysqli->connect_error ?? 'Connection failed');
+            if (! $connected) {
+                throw new MysqliConnectionException($mysqli->connect_error ?? 'Connection failed');
+            }
+
+            $mysqli->set_charset($this->charset);
+        } catch (\mysqli_sql_exception $e) {
+            throw new MysqliConnectionException($e->getMessage(), 0, $e);
         }
-
-        $mysqli->set_charset($this->charset);
 
         return $mysqli;
     }
