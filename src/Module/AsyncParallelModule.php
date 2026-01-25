@@ -7,6 +7,7 @@ namespace BEAR\Async\Module;
 use BEAR\Async\Adapter\ParallelAsync;
 use BEAR\Async\AsyncInterface;
 use BEAR\Async\AsyncLinker;
+use BEAR\Async\Exception\ExtensionNotLoadedException;
 use BEAR\Async\Qualifier\AppDir;
 use BEAR\Async\Qualifier\AppNamespace;
 use BEAR\Async\Qualifier\Context;
@@ -17,6 +18,7 @@ use Ray\Di\AbstractModule;
 use Ray\Di\Scope;
 
 use function exec;
+use function extension_loaded;
 use function is_numeric;
 use function php_uname;
 use function str_starts_with;
@@ -76,6 +78,10 @@ final class AsyncParallelModule extends AbstractModule
     #[Override]
     protected function configure(): void
     {
+        if (! extension_loaded('parallel')) {
+            throw new ExtensionNotLoadedException('ext-parallel is required. Install with: pecl install parallel (requires PHP ZTS build)');
+        }
+
         $this->bind()->annotatedWith(AppNamespace::class)->toInstance($this->namespace);
         $this->bind()->annotatedWith(Context::class)->toInstance($this->context);
         $this->bind()->annotatedWith(AppDir::class)->toInstance($this->appDir);

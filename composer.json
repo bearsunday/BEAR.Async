@@ -15,6 +15,7 @@
         "ray/di": "^2.18"
     },
     "require-dev": {
+        "ext-pdo": "*",
         "phpunit/phpunit": "^11.0",
         "bamarni/composer-bin-plugin": "^1.4",
         "brlabrussia/parallel-stub": "^1.1"
