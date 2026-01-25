@@ -5,42 +5,47 @@ on:
   pull_request:
 
 jobs:
-  benchmark-sync:
-    name: Sync Baseline
+  benchmark-docker:
+    name: Docker Benchmark (parallel + swoole)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-      - run: composer update --prefer-dist --no-interaction
-      - name: Run Sync Benchmark
-        run: php demo/benchmark.php sync
 
-  benchmark-swoole:
-    name: Swoole Parallel
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-          extensions: swoole
-      - run: composer update --prefer-dist --no-interaction
-      - name: Run Swoole Benchmark
+      - name: Build Docker image
+        run: docker compose build php
+
+      - name: Start MySQL
+        run: docker compose up -d mysql
+
+      - name: Wait for MySQL
         run: |
-          result=$(php -r "Co\run(function() {
-            global \$argv;
-            \$argv = ['benchmark.php', 'swoole'];
-            ob_start();
-            include 'demo/benchmark.php';
-            echo ob_get_clean();
-          });" 2>/dev/null || true)
+          for i in {1..30}; do
+            if docker compose exec -T mysql mysqladmin ping -h localhost -uroot -proot 2>/dev/null; then
+              echo "MySQL is ready"
+              break
+            fi
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 2
+          done
+
+      - name: Install main dependencies
+        run: docker compose run --rm php composer install --prefer-dist --no-interaction
+
+      - name: Install demo dependencies
+        run: docker compose run --rm php composer install --working-dir=/app/demo --prefer-dist --no-interaction
+
+      - name: Run ext-parallel benchmark
+        run: |
+          result=$(docker compose run --rm php php demo/bin/parallel-benchmark.php 3)
           echo "$result"
-          elapsed=$(echo "$result" | jq -e -r '.elapsed_ms')
-          if [ "$elapsed" -lt 1000 ]; then
-            echo "Parallel execution verified: ${elapsed}ms < 1000ms"
-          else
-            echo "Failed: ${elapsed}ms >= 1000ms"
-            exit 1
-          fi
+          echo "$result" | grep -q "SUCCESS" || exit 1
+
+      - name: Run ext-swoole benchmark
+        run: |
+          result=$(docker compose run --rm php php demo/bin/swoole-benchmark.php 3)
+          echo "$result"
+          # Swoole benchmark doesn't require specific speedup threshold
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v

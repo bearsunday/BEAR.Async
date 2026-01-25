@@ -1,0 +1,5 @@
+SELECT p.id, p.title, a.name as author_name, p.view_count, p.created_at
+FROM posts p
+JOIN authors a ON p.author_id = a.id
+ORDER BY p.created_at DESC
+LIMIT :limit

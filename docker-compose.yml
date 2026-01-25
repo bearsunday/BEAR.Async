@@ -1,0 +1,29 @@
+services:
+  php:
+    build: .
+    volumes:
+      - .:/app
+    working_dir: /app
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_DSN: "mysql:host=mysql;dbname=bear_async_demo"
+      DB_USER: root
+      DB_PASS: ""
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: bear_async_demo
+    volumes:
+      - ./demo/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./demo/sql/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
