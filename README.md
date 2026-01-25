@@ -106,3 +106,79 @@ Level 3: Comments for each post → all comment requests execute in parallel
 
 - ext-parallel: For parallel thread execution (requires ZTS PHP)
 - ext-swoole: For Swoole coroutine support
+- ext-mysqli: For mysqli batch execution
+
+## Mysqli Batch Execution
+
+Execute multiple SQL queries in parallel using mysqli's native async support.
+
+### Installation
+
+```php
+use BEAR\Async\Module\MysqliBatchModule;
+
+class AppModule extends AbstractModule
+{
+    protected function configure(): void
+    {
+        $this->install(new MysqliBatchModule(
+            host: 'localhost',
+            user: 'root',
+            pass: 'password',
+            database: 'mydb',
+        ));
+    }
+}
+```
+
+Or with environment variables:
+
+```php
+use BEAR\Async\Module\MysqliEnvModule;
+
+$this->install(new MysqliEnvModule(
+    'MYSQLI_HOST',
+    'MYSQLI_USER',
+    'MYSQLI_PASSWORD',
+    'MYSQLI_DATABASE',
+));
+```
+
+### Usage
+
+```php
+use BEAR\Async\SqlBatch;
+use BEAR\Async\SqlBatchExecutorInterface;
+
+class MyService
+{
+    public function __construct(
+        private SqlBatchExecutorInterface $executor,
+    ) {}
+
+    public function getData(int $userId): array
+    {
+        // Execute multiple queries in parallel with invocable pattern
+        $results = (new SqlBatch($this->executor, [
+            'user' => ['SELECT * FROM users WHERE id = :id', ['id' => $userId]],
+            'posts' => ['SELECT * FROM posts WHERE user_id = :user_id', ['user_id' => $userId]],
+            'comments' => ['SELECT * FROM comments WHERE user_id = :user_id', ['user_id' => $userId]],
+        ]))();
+
+        return [
+            'user' => $results['user'][0] ?? null,
+            'posts' => $results['posts'],
+            'comments' => $results['comments'],
+        ];
+    }
+}
+```
+
+### Architecture
+
+| Class | Description |
+|-------|-------------|
+| `SqlBatch` | Invocable value object with `__invoke()` for one-line execution |
+| `SqlBatchExecutorInterface` | Stateless executor interface (singleton-safe) |
+| `MysqliBatchExecutor` | Async execution using `mysqli_poll` |
+| `SyncBatchExecutor` | Sequential execution for testing/fallback |
