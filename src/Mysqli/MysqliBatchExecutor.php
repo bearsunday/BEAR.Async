@@ -31,8 +31,8 @@ use function usleep;
  */
 final class MysqliBatchExecutor implements SqlBatchExecutorInterface
 {
-    private const int POLL_INTERVAL_USEC = 1000;
-    private const int MAX_POLL_ITERATIONS = 30000;
+    private const POLL_INTERVAL_USEC = 1000;
+    private const MAX_POLL_ITERATIONS = 30000;
 
     public function __construct(
         private readonly MysqliConnectionFactory $factory,
