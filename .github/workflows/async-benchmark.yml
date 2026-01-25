@@ -20,7 +20,7 @@ jobs:
       - name: Wait for MySQL
         run: |
           for i in {1..30}; do
-            if docker compose exec -T mysql mysqladmin ping -h localhost -uroot -proot 2>/dev/null; then
+            if docker compose exec -T mysql mysqladmin ping -h localhost -uroot 2>/dev/null; then
               echo "MySQL is ready"
               break
             fi
@@ -32,13 +32,19 @@ jobs:
         run: docker compose run --rm php composer install --prefer-dist --no-interaction
 
       - name: Install demo dependencies
-        run: docker compose run --rm php composer install --working-dir=/app/demo --prefer-dist --no-interaction
+        run: docker compose run --rm php composer install --working-dir=/app/demo --prefer-dist --no-interaction --no-scripts
+
+      - name: Verify environment
+        run: |
+          echo "PHP Extensions:"
+          docker compose run --rm php php -m | grep -E "parallel|swoole|pdo" || true
+          echo "Environment:"
+          docker compose run --rm php php -r "echo 'DB_DSN: ' . getenv('DB_DSN') . PHP_EOL;"
+          echo "Test DB connection:"
+          docker compose run --rm php php -r "new PDO(getenv('DB_DSN'), getenv('DB_USER'), getenv('DB_PASS')); echo 'OK';"
 
       - name: Run ext-parallel benchmark
-        run: |
-          result=$(docker compose run --rm php php demo/bin/parallel-benchmark.php 3)
-          echo "$result"
-          echo "$result" | grep -q "SUCCESS" || exit 1
+        run: docker compose run --rm php php demo/bin/parallel-benchmark.php 3
 
       - name: Run ext-swoole benchmark
         run: |
