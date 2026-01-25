@@ -83,6 +83,10 @@ PHP;
 
     public function __invoke(array $tasks): void
     {
+        if ($tasks === []) {
+            return;
+        }
+
         if (! $this->initialized) {
             $this->initializePool();
             $this->initialized = true;
@@ -111,7 +115,7 @@ PHP;
                     $ro = $resource->get($uri, $query);
 
                     /** @var array<string, mixed>|null */
-                    return $ro()->body; // @phpstan-ignore-line callable.nonCallable, property.nonObject
+                    return $ro->body;
                 },
                 [$uri, $query],
             );

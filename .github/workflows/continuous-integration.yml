@@ -40,3 +40,26 @@ jobs:
 
       - name: Run PHPUnit
         run: ./vendor/bin/phpunit --coverage-text
+
+  phpunit-parallel:
+    name: PHPUnit (Parallel)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP with ZTS and ext-parallel
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: parallel
+          coverage: none
+          ini-values: zend.assertions=1
+        env:
+          phpts: zts
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Run PHPUnit (parallel group)
+        run: ./vendor/bin/phpunit --group parallel

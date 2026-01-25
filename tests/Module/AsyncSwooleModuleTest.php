@@ -13,6 +13,9 @@ use PHPUnit\Framework\TestCase;
 use Ray\Di\AbstractModule;
 use Ray\Di\Injector;
 
+/**
+ * @requires extension swoole
+ */
 class AsyncSwooleModuleTest extends TestCase
 {
     public function testModuleCanBeInstantiated(): void

@@ -4,48 +4,34 @@ declare(strict_types=1);
 
 namespace BEAR\Async;
 
-use BEAR\Async\Exception\NotInCoroutineException;
-use PDO;
+use Ray\Di\Di\Named;
 use Ray\Di\ProviderInterface;
-use Swoole\Coroutine;
 
 /**
- * Provider that supplies PDO instances from the connection pool
+ * Provider for PdoPool that creates the pool at runtime
  *
- * This provider retrieves a PDO connection from the pool and automatically
- * returns it when the coroutine ends using Swoole's defer() function.
+ * This avoids serialization issues with Swoole\Lock during DI compilation.
  *
- * IMPORTANT: This provider must be used within a Swoole coroutine context.
- * Calling get() outside a coroutine will throw a RuntimeException.
- *
- * @implements ProviderInterface<PDO>
+ * @implements ProviderInterface<PdoPool>
  */
 final class PdoPoolProvider implements ProviderInterface
 {
+    /**
+     * @param non-empty-string $dsn      PDO DSN string
+     * @param string           $user     Database username
+     * @param string           $pass     Database password
+     * @param positive-int     $poolSize Pool size (number of connections)
+     */
     public function __construct(
-        private readonly PdoPool $pool,
+        #[Named('pdo_pool_dsn')] private readonly string $dsn,
+        #[Named('pdo_pool_user')] private readonly string $user,
+        #[Named('pdo_pool_pass')] private readonly string $pass,
+        #[Named('pdo_pool_size')] private readonly int $poolSize,
     ) {
     }
 
-    /**
-     * Get a PDO instance from the pool
-     *
-     * The connection is automatically returned to the pool when
-     * the coroutine completes via defer().
-     *
-     * @throws NotInCoroutineException if called outside a Swoole coroutine context
-     *
-     * @codeCoverageIgnore Requires Swoole coroutine context
-     */
-    public function get(): PDO
+    public function get(): PdoPool
     {
-        if (Coroutine::getCid() === -1) {
-            throw new NotInCoroutineException();
-        }
-
-        $pdo = $this->pool->get();
-        Coroutine::defer(fn () => $this->pool->put($pdo));
-
-        return $pdo;
+        return new PdoPool($this->dsn, $this->user, $this->pass, $this->poolSize);
     }
 }
