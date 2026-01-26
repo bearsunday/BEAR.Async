@@ -20,7 +20,7 @@ jobs:
           tools: cs2pr
 
       - name: Install dependencies
-        run: composer update --prefer-dist --no-interaction --no-progress
+        uses: ramsey/composer-install@v3
 
       - name: Install PHP_CodeSniffer
         run: composer bin tools require --dev squizlabs/php_codesniffer

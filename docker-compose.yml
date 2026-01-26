@@ -1,5 +1,6 @@
 services:
   php:
+    image: ghcr.io/bearsunday/bear-async-php:latest
     build: .
     volumes:
       - .:/app
