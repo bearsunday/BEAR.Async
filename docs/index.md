@@ -9,20 +9,9 @@ Async/parallel resource execution library for BEAR.Sunday.
 
 ## Overview
 
-BEAR.Async enables transparent parallel execution of BEAR.Sunday's `#[Embed]` resources. Unlike traditional async programming that requires special syntax (async/await, Promise, yield), BEAR.Async requires **no code changes** to your existing resources.
+BEAR.Async enables transparent parallel execution of BEAR.Sunday's `#[Embed]` resources.
 
-### Traditional Async vs BEAR.Async
-
-| Traditional Async | BEAR.Async |
-|-------------------|------------|
-| Requires async/await or Promise | No special syntax needed |
-| Must rewrite existing code | Existing `#[Embed]` works as-is |
-| Explicit concurrency management | Automatic parallel execution |
-| Learning curve for async patterns | Just install a module |
-
-### How It Works
-
-Your existing declarative code:
+Traditional async programming requires rewriting code with special syntax like async/await, Promise, or yield. Developers must explicitly manage concurrency and learn new patterns. BEAR.Async takes a different approach: your existing `#[Embed]` attributes work as-is. Just install a module, and embedded resources automatically execute in parallel. No syntax changes, no rewriting, no learning curve.
 
 ```php
 #[Embed(rel: 'profile', src: 'app://self/user/profile?id={user_id}')]
@@ -31,7 +20,7 @@ Your existing declarative code:
 public function onGet(int $user_id): static
 ```
 
-With BEAR.Async module installed, these 3 embeds execute **in parallel** instead of sequentially - no code changes required.
+With BEAR.Async module installed, these 3 embeds execute **in parallel** instead of sequentially.
 
 ## Modules
 
