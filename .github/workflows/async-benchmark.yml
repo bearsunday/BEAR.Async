@@ -85,14 +85,6 @@ jobs:
             exit 1
           fi
 
-      - name: Cache Composer downloads
-        uses: actions/cache@v4
-        with:
-          path: ~/.composer/cache
-          key: ${{ runner.os }}-composer-cache-${{ hashFiles('composer.lock', 'demo/composer.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-composer-cache-
-
       - name: Install main dependencies
         run: docker compose run --rm php composer install --prefer-dist --no-interaction
 
