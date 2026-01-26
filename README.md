@@ -43,7 +43,7 @@ $this->install(new AsyncParallelModule(
 ));
 ```
 
-### Swoole Module
+### Swoole Module (ext-swoole)
 
 For applications already running on Swoole HTTP Server with high concurrency requirements.
 
@@ -104,14 +104,7 @@ Level 3: Comments for each post → all comment requests execute in parallel
 ## Requirements
 
 - PHP 8.2+
-- bear/resource ^1.17
-- ray/di ^2.18
-
-## Optional Dependencies
-
-- ext-parallel: For parallel thread execution (requires ZTS PHP)
-- ext-swoole: For Swoole coroutine support
-- ext-mysqli: For mysqli batch execution
+- ext-parallel (ZTS PHP required) or ext-swoole for async execution
 
 ## Mysqli Batch Execution
 
