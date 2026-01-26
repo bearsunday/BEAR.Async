@@ -1,0 +1,77 @@
+<?php
+
+declare(strict_types=1);
+
+namespace BEAR\Async;
+
+use BEAR\Async\Adapter\SyncAsync;
+use BEAR\Async\Fake\FakeResourceObject;
+use BEAR\Resource\InvokerInterface;
+use BEAR\Resource\Request;
+use PHPUnit\Framework\TestCase;
+
+class AsyncRequestTest extends TestCase
+{
+    public function testGetUri(): void
+    {
+        $invoker = $this->createMock(InvokerInterface::class);
+        $ro = new FakeResourceObject('app://self/user');
+        $request = new Request($invoker, $ro, 'get', []);
+
+        $allRequests = new PendingRequests(new SyncAsync());
+        $asyncRequest = new AsyncRequest($request, $allRequests);
+
+        $this->assertSame('app://self/user', $asyncRequest->getUri());
+    }
+
+    public function testInvokeReturnsResourceObject(): void
+    {
+        $invoker = $this->createMock(InvokerInterface::class);
+        $ro = new FakeResourceObject('app://self/user');
+        $ro->body = ['name' => 'Test'];
+        $invoker->method('invoke')
+            ->willReturn($ro);
+
+        $request = new Request($invoker, $ro, 'get', []);
+
+        $pendingRequests = new PendingRequests(new SyncAsync());
+        $asyncRequest = new AsyncRequest($request, $pendingRequests);
+
+        $result = $asyncRequest();
+
+        $this->assertInstanceOf(FakeResourceObject::class, $result);
+        $this->assertSame(['name' => 'Test'], $result->body);
+    }
+
+    public function testGetQuery(): void
+    {
+        $invoker = $this->createMock(InvokerInterface::class);
+        $ro = new FakeResourceObject('app://self/user');
+        $query = ['id' => '123', 'name' => 'test'];
+        $request = new Request($invoker, $ro, 'get', $query);
+
+        $pendingRequests = new PendingRequests(new SyncAsync());
+        $asyncRequest = new AsyncRequest($request, $pendingRequests);
+
+        $this->assertSame($query, $asyncRequest->getQuery());
+    }
+
+    public function testToStringTriggersExecution(): void
+    {
+        $invoker = $this->createMock(InvokerInterface::class);
+        $ro = new FakeResourceObject('app://self/user');
+        $ro->body = ['name' => 'Test'];
+        $invoker->method('invoke')
+            ->willReturn($ro);
+
+        $request = new Request($invoker, $ro, 'get', []);
+
+        $allRequests = new PendingRequests(new SyncAsync());
+        $asyncRequest = new AsyncRequest($request, $allRequests);
+
+        // When __toString is called, execution should happen
+        $result = (string) $asyncRequest;
+
+        $this->assertNotEmpty($result);
+    }
+}

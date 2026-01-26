@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace BEAR\Async\Adapter;
 
 use BEAR\Async\AsyncInterface;
-use BEAR\Async\EmbedTask;
+use BEAR\Async\AsyncRequest;
 use BEAR\Async\RequestTask;
+use Override;
 
 /**
  * Synchronous fallback when no async runtime is available
@@ -20,16 +21,10 @@ final class SyncAsync implements AsyncInterface
     /**
      * @codeCoverageIgnore Requires BEAR.Resource integration test
      */
+    #[Override]
     public function __invoke(array $tasks): void
     {
         foreach ($tasks as $task) {
-            if ($task instanceof EmbedTask) {
-                // For embed: (string) triggers invoke + render, both cached
-                (string) $task->getRequest();
-
-                continue;
-            }
-
             if (! ($task instanceof RequestTask)) {
                 continue;
             }
@@ -41,6 +36,19 @@ final class SyncAsync implements AsyncInterface
         }
     }
 
+    /** {@inheritDoc} */
+    #[Override]
+    public function execute(array $requests): array
+    {
+        $results = [];
+        foreach ($requests as $uri => $request) {
+            $results[$uri] = (string) $request();
+        }
+
+        return $results;
+    }
+
+    #[Override]
     public function isAvailable(): bool
     {
         return true;

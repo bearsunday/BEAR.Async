@@ -4,22 +4,25 @@ declare(strict_types=1);
 
 namespace BEAR\Async\Module;
 
-use BEAR\Async\AsyncRenderDecorator;
-use BEAR\Resource\HalRenderer;
-use BEAR\Resource\RenderInterface;
+use BEAR\Async\PendingRequests;
+use BEAR\Async\AsyncEmbedInterceptor;
+use BEAR\Resource\EmbedInterceptor;
+use BEAR\Resource\EmbedInterceptorInterface;
 use Override;
+use Ray\Aop\MethodInterceptor;
 use Ray\Di\AbstractModule;
+use Ray\Di\Scope;
 
 /**
  * AsyncEmbedModule provides async/parallel loading for #[Embed] resources
  *
- * This module decorates the renderer with AsyncRenderDecorator to enable
- * parallel loading of embedded resources. The decorator pre-executes all
- * embedded requests in parallel before rendering, leveraging AbstractRequest's
- * built-in caching.
+ * This module replaces the standard EmbedInterceptor with AsyncEmbedInterceptor
+ * to enable parallel loading of embedded resources. AsyncEmbedInterceptor wraps
+ * AbstractRequest objects with AsyncRequest, which triggers batch parallel
+ * execution when rendered via PendingRequests (そうめん流し方式).
  *
- * NOTE: This module is automatically installed by AsyncSwooleModule.
- * You don't need to install it separately when using AsyncSwooleModule.
+ * NOTE: This module is automatically installed by AsyncSwooleModule and AsyncParallelModule.
+ * You don't need to install it separately when using those modules.
  *
  * IMPORTANT: This module requires AsyncInterface to be bound.
  *
@@ -42,29 +45,21 @@ use Ray\Di\AbstractModule;
  *           $this->install(new AsyncSwooleModule());  // Includes AsyncEmbedModule
  *       }
  *   }
- *
- * To use a different renderer (default is HalRenderer):
- *   class AppModule extends AbstractModule
- *   {
- *       protected function configure(): void
- *       {
- *           $this->bind(RenderInterface::class)->annotatedWith('async.inner')->to(JsonRenderer::class);
- *           $this->install(new AsyncSwooleModule());
- *       }
- *   }
  */
 final class AsyncEmbedModule extends AbstractModule
 {
     #[Override]
     protected function configure(): void
     {
-        // Bind inner renderer (default to HalRenderer)
-        // Users can override this binding before installing this module
-        $this->bind(RenderInterface::class)
-            ->annotatedWith('async.inner')
-            ->to(HalRenderer::class);
+        // PendingRequests must be singleton to collect all requests in one batch
+        $this->bind(PendingRequests::class)->in(Scope::SINGLETON);
 
-        // Bind main RenderInterface to async decorator
-        $this->bind(RenderInterface::class)->to(AsyncRenderDecorator::class);
+        // Bind inner interceptor (the standard EmbedInterceptor)
+        $this->bind(MethodInterceptor::class)
+            ->annotatedWith('async.embed.inner')
+            ->to(EmbedInterceptor::class);
+
+        // Replace EmbedInterceptorInterface with AsyncEmbedInterceptor
+        $this->bind(EmbedInterceptorInterface::class)->to(AsyncEmbedInterceptor::class);
     }
 }

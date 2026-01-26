@@ -8,6 +8,8 @@ use BEAR\Async\Adapter\SwooleAsync;
 use BEAR\Async\AsyncInterface;
 use BEAR\Async\AsyncLinker;
 use BEAR\Async\Exception\ExtensionNotLoadedException;
+use BEAR\Async\PendingRequests;
+use BEAR\Async\SwoolePendingRequestsProvider;
 use BEAR\Resource\LinkerInterface;
 use Override;
 use Ray\Di\AbstractModule;
@@ -53,5 +55,9 @@ final class AsyncSwooleModule extends AbstractModule
 
         // Install AsyncEmbedModule for parallel #[Embed] support
         $this->install(new AsyncEmbedModule());
+
+        // Override PendingRequests binding to use coroutine-local provider
+        // This prevents concurrent coroutines from sharing the same instance
+        $this->bind(PendingRequests::class)->toProvider(SwoolePendingRequestsProvider::class);
     }
 }

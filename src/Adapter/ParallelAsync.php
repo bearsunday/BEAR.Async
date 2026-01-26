@@ -5,17 +5,18 @@ declare(strict_types=1);
 namespace BEAR\Async\Adapter;
 
 use BEAR\Async\AsyncInterface;
-use BEAR\Async\EmbedTask;
+use BEAR\Async\AsyncRequest;
 use BEAR\Async\Exception\BootstrapFileException;
 use BEAR\Async\Qualifier\AppDir;
 use BEAR\Async\Qualifier\AppNamespace;
 use BEAR\Async\Qualifier\Context;
 use BEAR\Async\Qualifier\PoolSize;
 use BEAR\Async\RequestTask;
-use BEAR\Resource\Request;
+use Override;
 use parallel\Future;
 use parallel\Runtime;
 
+use function array_keys;
 use function array_values;
 use function extension_loaded;
 use function file_exists;
@@ -84,6 +85,7 @@ PHP;
         return $file;
     }
 
+    #[Override]
     public function __invoke(array $tasks): void
     {
         if ($tasks === []) {
@@ -132,22 +134,81 @@ PHP;
         }
     }
 
+    /** {@inheritDoc} */
+    #[Override]
+    public function execute(array $requests): array
+    {
+        if ($requests === []) {
+            return [];
+        }
+
+        if (! $this->initialized) {
+            $this->initializePool();
+            $this->initialized = true;
+        }
+
+        /** @var list<Future> $futures */
+        $futures = [];
+        $uris = array_keys($requests);
+        $requestList = array_values($requests);
+
+        foreach ($requestList as $i => $request) {
+            $runtime = $this->pool[$i % $this->poolSize];
+            [$uri, $query] = $this->extractUriAndQueryFromAsyncRequest($request);
+
+            $future = $runtime->run(
+                /**
+                 * @param array<string, mixed> $query
+                 */
+                static function (string $uri, array $query): string {
+                    /** @var \BEAR\Resource\ResourceInterface $resource */
+                    $resource = $GLOBALS['__bear_async_resource'];
+                    /** @var array<string, mixed> $query */
+                    $ro = $resource->get($uri, $query);
+
+                    return (string) $ro;
+                },
+                [$uri, $query],
+            );
+            if ($future !== null) {
+                $futures[$i] = $future;
+            }
+        }
+
+        $results = [];
+        foreach ($futures as $i => $future) {
+            /** @var string $result */
+            $result = $future->value();
+            $results[$uris[$i]] = $result;
+        }
+
+        return $results;
+    }
+
     /**
-     * Extract URI and query from task
+     * Extract URI and query from RequestTask
      *
      * @return array{0: string, 1: array<string, mixed>}
      */
-    private function extractUriAndQuery(RequestTask|EmbedTask $task): array
+    private function extractUriAndQuery(RequestTask $task): array
     {
         $request = $task->getRequest();
         $uri = (string) $request->resourceObject->uri;
 
-        // Request class has public query property
-        $query = $request instanceof Request ? $request->query : [];
-
-        return [$uri, $query];
+        return [$uri, $request->query];
     }
 
+    /**
+     * Extract URI and query from AsyncRequest
+     *
+     * @return array{0: string, 1: array<string, mixed>}
+     */
+    private function extractUriAndQueryFromAsyncRequest(AsyncRequest $asyncRequest): array
+    {
+        return [$asyncRequest->getUri(), $asyncRequest->getQuery()];
+    }
+
+    #[Override]
     public function isAvailable(): bool
     {
         return extension_loaded('parallel');

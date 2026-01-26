@@ -1,0 +1,78 @@
+<?php
+
+declare(strict_types=1);
+
+namespace BEAR\Async;
+
+/**
+ * Singleton collector for async requests (そうめん流し方式)
+ *
+ * Collects pending AsyncRequests and executes them all in parallel
+ * when any result is requested. Results are cached by URI.
+ *
+ * Flow:
+ * 1. AsyncRequest registers itself via add()
+ * 2. Template engine calls __toString() on AsyncRequest
+ * 3. getResult() triggers executePending() if result not cached
+ * 4. All pending requests execute in parallel
+ * 5. Results cached and returned
+ */
+final class PendingRequests
+{
+    /** @var array<string, AsyncRequest> URI => AsyncRequest */
+    private array $pending = [];
+
+    /** @var array<string, string> URI => rendered view string */
+    private array $results = [];
+
+    public function __construct(
+        private readonly AsyncInterface $async,
+    ) {
+    }
+
+    public function add(AsyncRequest $request): void
+    {
+        $uri = $request->getUri();
+        if (! isset($this->results[$uri]) && ! isset($this->pending[$uri])) {
+            $this->pending[$uri] = $request;
+        }
+    }
+
+    public function getResult(string $uri): string
+    {
+        if (isset($this->results[$uri])) {
+            return $this->results[$uri];
+        }
+
+        $this->executePending();
+
+        /** @psalm-suppress PossiblyUndefinedArrayOffset executePending() populates this */
+        return $this->results[$uri];
+    }
+
+    private function executePending(): void
+    {
+        if ($this->pending === []) {
+            return;
+        }
+
+        foreach ($this->async->execute($this->pending) as $uri => $result) {
+            $this->results[$uri] = $result;
+        }
+
+        $this->pending = [];
+    }
+
+    /**
+     * Reset state for next request cycle
+     *
+     * MUST be called at the start of each HTTP request when using
+     * long-running servers (Swoole, RoadRunner, etc.) to prevent
+     * stale cached results from being returned.
+     */
+    public function reset(): void
+    {
+        $this->pending = [];
+        $this->results = [];
+    }
+}
