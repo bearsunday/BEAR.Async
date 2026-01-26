@@ -28,7 +28,7 @@ final class AsyncRequest implements Stringable
         private readonly AbstractRequest $inner,
         private readonly PendingRequests $pendingRequests,
     ) {
-        $this->uri = (string) $inner->resourceObject->uri;
+        $this->uri = $inner->toUri();
         $this->query = $inner->query;
         $pendingRequests->add($this);
     }
