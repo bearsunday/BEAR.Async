@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace BEAR\Async\Adapter;
 
 use BEAR\Async\AsyncInterface;
-use BEAR\Async\AsyncRequest;
 use BEAR\Async\RequestTask;
 use Override;
 
