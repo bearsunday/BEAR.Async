@@ -17,6 +17,11 @@ This document presents benchmark results comparing synchronous execution with pa
 ## Running Benchmarks
 
 ```bash
+# Setup demo application
+cd demo
+composer install
+cd ..
+
 # Build Docker image with both extensions
 docker-compose build php
 
