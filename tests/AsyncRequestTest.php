@@ -12,7 +12,7 @@ use PHPUnit\Framework\TestCase;
 
 class AsyncRequestTest extends TestCase
 {
-    public function testGetUri(): void
+    public function testUri(): void
     {
         $invoker = $this->createMock(InvokerInterface::class);
         $ro = new FakeResourceObject('app://self/user');
@@ -21,7 +21,7 @@ class AsyncRequestTest extends TestCase
         $allRequests = new PendingRequests(new SyncAsync());
         $asyncRequest = new AsyncRequest($request, $allRequests);
 
-        $this->assertSame('app://self/user', $asyncRequest->getUri());
+        $this->assertSame('app://self/user', $asyncRequest->uri);
     }
 
     public function testInvokeReturnsResourceObject(): void
@@ -43,7 +43,7 @@ class AsyncRequestTest extends TestCase
         $this->assertSame(['name' => 'Test'], $result->body);
     }
 
-    public function testGetQuery(): void
+    public function testQuery(): void
     {
         $invoker = $this->createMock(InvokerInterface::class);
         $ro = new FakeResourceObject('app://self/user');
@@ -53,7 +53,7 @@ class AsyncRequestTest extends TestCase
         $pendingRequests = new PendingRequests(new SyncAsync());
         $asyncRequest = new AsyncRequest($request, $pendingRequests);
 
-        $this->assertSame($query, $asyncRequest->getQuery());
+        $this->assertSame($query, $asyncRequest->query);
     }
 
     public function testToStringTriggersExecution(): void

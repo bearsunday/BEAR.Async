@@ -19,10 +19,17 @@ use Stringable;
  */
 final class AsyncRequest implements Stringable
 {
+    public readonly string $uri;
+
+    /** @var array<string, mixed> */
+    public readonly array $query;
+
     public function __construct(
         private readonly AbstractRequest $inner,
         private readonly PendingRequests $pendingRequests,
     ) {
+        $this->uri = (string) $inner->resourceObject->uri;
+        $this->query = $inner->query;
         $pendingRequests->add($this);
     }
 
@@ -32,19 +39,8 @@ final class AsyncRequest implements Stringable
         return ($this->inner)();
     }
 
-    public function getUri(): string
-    {
-        return (string) $this->inner->resourceObject->uri;
-    }
-
-    /** @return array<string, mixed> */
-    public function getQuery(): array
-    {
-        return $this->inner->query;
-    }
-
     public function __toString(): string
     {
-        return $this->pendingRequests->getResult($this->getUri());
+        return $this->pendingRequests->getResult($this->uri);
     }
 }

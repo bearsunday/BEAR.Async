@@ -205,7 +205,7 @@ PHP;
      */
     private function extractUriAndQueryFromAsyncRequest(AsyncRequest $asyncRequest): array
     {
-        return [$asyncRequest->getUri(), $asyncRequest->getQuery()];
+        return [$asyncRequest->uri, $asyncRequest->query];
     }
 
     #[Override]

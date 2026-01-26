@@ -32,9 +32,8 @@ final class PendingRequests
 
     public function add(AsyncRequest $request): void
     {
-        $uri = $request->getUri();
-        if (! isset($this->results[$uri]) && ! isset($this->pending[$uri])) {
-            $this->pending[$uri] = $request;
+        if (! isset($this->results[$request->uri]) && ! isset($this->pending[$request->uri])) {
+            $this->pending[$request->uri] = $request;
         }
     }
 
