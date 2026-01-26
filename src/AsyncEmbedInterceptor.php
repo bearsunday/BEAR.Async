@@ -41,17 +41,31 @@ final class AsyncEmbedInterceptor implements EmbedInterceptorInterface
             return $result;
         }
 
-        // Replace AbstractRequest with AsyncRequest in body
+        // Replace AbstractRequest with AsyncRequest in body (recursively)
         /**
          * @var string $key
          * @var mixed $value
          */
         foreach ($result->body as $key => $value) {
-            if ($value instanceof AbstractRequest) {
-                $result->body[$key] = new AsyncRequest($value, $this->allRequests);
-            }
+            $result->body[$key] = $this->wrapAsyncRequests($value);
         }
 
         return $result;
+    }
+
+    /** @psalm-suppress MixedAssignment */
+    private function wrapAsyncRequests(mixed $value): mixed
+    {
+        if ($value instanceof AbstractRequest) {
+            return new AsyncRequest($value, $this->allRequests);
+        }
+
+        if (is_array($value)) {
+            foreach ($value as $k => $v) {
+                $value[$k] = $this->wrapAsyncRequests($v);
+            }
+        }
+
+        return $value;
     }
 }

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace BEAR\Async;
 
+use BEAR\Async\Exception\ResultNotFoundException;
+
+use function sprintf;
+
 /**
  * Singleton collector for async requests (そうめん流し方式)
  *
@@ -39,14 +43,11 @@ final class PendingRequests
 
     public function getResult(string $uri): string
     {
-        if (isset($this->results[$uri])) {
-            return $this->results[$uri];
+        if (! isset($this->results[$uri])) {
+            $this->executePending();
         }
 
-        $this->executePending();
-
-        /** @psalm-suppress PossiblyUndefinedArrayOffset executePending() populates this */
-        return $this->results[$uri];
+        return $this->results[$uri] ?? throw new ResultNotFoundException(sprintf('Result not found for URI: %s', $uri));
     }
 
     private function executePending(): void
