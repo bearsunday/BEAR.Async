@@ -8,6 +8,8 @@ use BEAR\AsyncDemo\Annotation\SlowQuery;
 use BEAR\AsyncDemo\Query\CategoryQueryInterface;
 use BEAR\Resource\ResourceObject;
 
+use function array_map;
+
 /**
  * Categories resource
  */
@@ -22,7 +24,7 @@ class Categories extends ResourceObject
     public function onGet(): static
     {
         $categories = $this->categoryQuery->list();
-        $this->body = array_map(static fn($c) => (array) $c, $categories);
+        $this->body = array_map(static fn ($c) => (array) $c, $categories);
 
         return $this;
     }

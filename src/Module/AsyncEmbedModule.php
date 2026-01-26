@@ -4,22 +4,19 @@ declare(strict_types=1);
 
 namespace BEAR\Async\Module;
 
-use BEAR\Async\AsyncEmbedInterceptor;
-use BEAR\Async\AsyncHalRenderer;
-use BEAR\Async\EmbedDataLoader;
-use BEAR\Async\EmbedRequests;
-use BEAR\Resource\EmbedInterceptorInterface;
+use BEAR\Async\AsyncRenderDecorator;
+use BEAR\Resource\HalRenderer;
 use BEAR\Resource\RenderInterface;
 use Override;
 use Ray\Di\AbstractModule;
-use Ray\Di\Scope;
 
 /**
  * AsyncEmbedModule provides async/parallel loading for #[Embed] resources
  *
- * This module replaces the standard EmbedInterceptor with AsyncEmbedInterceptor
- * and HalRenderer with AsyncHalRenderer to enable parallel loading of
- * embedded resources.
+ * This module decorates the renderer with AsyncRenderDecorator to enable
+ * parallel loading of embedded resources. The decorator pre-executes all
+ * embedded requests in parallel before rendering, leveraging AbstractRequest's
+ * built-in caching.
  *
  * NOTE: This module is automatically installed by AsyncSwooleModule.
  * You don't need to install it separately when using AsyncSwooleModule.
@@ -45,20 +42,29 @@ use Ray\Di\Scope;
  *           $this->install(new AsyncSwooleModule());  // Includes AsyncEmbedModule
  *       }
  *   }
+ *
+ * To use a different renderer (default is HalRenderer):
+ *   class AppModule extends AbstractModule
+ *   {
+ *       protected function configure(): void
+ *       {
+ *           $this->bind(RenderInterface::class)->annotatedWith('async.inner')->to(JsonRenderer::class);
+ *           $this->install(new AsyncSwooleModule());
+ *       }
+ *   }
  */
 final class AsyncEmbedModule extends AbstractModule
 {
     #[Override]
     protected function configure(): void
     {
-        // EmbedRequests is singleton but drains after each load cycle, ensuring clean state
-        $this->bind(EmbedRequests::class)->in(Scope::SINGLETON);
-        $this->bind(EmbedDataLoader::class);
+        // Bind inner renderer (default to HalRenderer)
+        // Users can override this binding before installing this module
+        $this->bind(RenderInterface::class)
+            ->annotatedWith('async.inner')
+            ->to(HalRenderer::class);
 
-        // Replace EmbedInterceptor with AsyncEmbedInterceptor via interface binding
-        $this->bind(EmbedInterceptorInterface::class)->to(AsyncEmbedInterceptor::class);
-
-        // Replace HalRenderer with AsyncHalRenderer
-        $this->bind(RenderInterface::class)->to(AsyncHalRenderer::class);
+        // Bind main RenderInterface to async decorator
+        $this->bind(RenderInterface::class)->to(AsyncRenderDecorator::class);
     }
 }

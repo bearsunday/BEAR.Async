@@ -9,9 +9,7 @@ use Ray\MediaQuery\Annotation\DbQuery;
 
 interface CommentQueryInterface
 {
-    /**
-     * @return list<Comment>
-     */
+    /** @return list<Comment> */
     #[DbQuery('comment_list_by_post')]
     public function listByPost(int $post_id): array;
 }

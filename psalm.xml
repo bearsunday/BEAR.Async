@@ -29,16 +29,6 @@
                 <referencedClass name="BEAR\Resource\DataLoader\DataLoader"/>
             </errorLevel>
         </UndefinedClass>
-        <NoInterfaceProperties>
-            <errorLevel type="suppress">
-                <file name="src/AsyncEmbedInterceptor.php"/>
-            </errorLevel>
-        </NoInterfaceProperties>
-        <MixedMethodCall>
-            <errorLevel type="suppress">
-                <file name="src/AsyncEmbedInterceptor.php"/>
-            </errorLevel>
-        </MixedMethodCall>
         <MixedAssignment>
             <errorLevel type="suppress">
                 <directory name="src/Adapter"/>

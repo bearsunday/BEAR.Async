@@ -17,7 +17,11 @@ interface AsyncInterface
     /**
      * Execute all tasks in parallel and populate their results
      *
-     * @param array<string, RequestTask> $tasks Tasks keyed by request hash
+     * For RequestTask (crawl): executes request, sets body via setResult()
+     * For EmbedTask (embed): either populates cache directly (Swoole/Sync)
+     *                        or sets body via setResult() for later cache population
+     *
+     * @param array<string, RequestTask|EmbedTask> $tasks Tasks keyed by request hash
      */
     public function __invoke(array $tasks): void;
 

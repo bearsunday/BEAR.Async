@@ -9,9 +9,7 @@ use Ray\MediaQuery\Annotation\DbQuery;
 
 interface NotificationQueryInterface
 {
-    /**
-     * @return list<Notification>
-     */
+    /** @return list<Notification> */
     #[DbQuery('notification_list_by_user')]
     public function listByUser(int $user_id): array;
 }

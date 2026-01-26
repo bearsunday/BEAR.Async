@@ -7,6 +7,8 @@ use BEAR\Sunday\Extension\Application\AppInterface;
 
 require dirname(__DIR__) . '/autoload.php';
 
+@unlink('/tmp/render-debug.log');
+
 $iterations = (int) ($argv[1] ?? 3);
 
 echo "BEAR.Async Parallel Benchmark\n";
@@ -80,4 +82,10 @@ if ($speedup < 2.0) {
 }
 
 echo "\nSUCCESS: Parallel execution achieved {$speedup}x speedup\n";
+
+if (file_exists('/tmp/render-debug.log')) {
+    echo "\n=== Render Log ===\n";
+    echo file_get_contents('/tmp/render-debug.log');
+}
+
 exit(0);

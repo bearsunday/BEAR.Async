@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace BEAR\Async\Adapter;
 
 use BEAR\Async\AsyncInterface;
+use BEAR\Async\EmbedTask;
+use BEAR\Async\RequestTask;
 use Swoole\Coroutine;
 use Swoole\Coroutine\WaitGroup;
 
@@ -32,6 +34,19 @@ final class SwooleAsync implements AsyncInterface
             $wg->add();
             Coroutine::create(function () use ($task, $wg): void {
                 try {
+                    if ($task instanceof EmbedTask) {
+                        // For embed: (string) triggers invoke + render, both cached
+                        // Coroutines share memory, so cache is populated directly
+                        (string) $task->getRequest();
+
+                        return;
+                    }
+
+                    if (! ($task instanceof RequestTask)) {
+                        return;
+                    }
+
+                    // For crawl: get body and set result
                     $result = ($task->getRequest())()->body;
                     /** @var array<string, mixed>|null $result */
                     $task->setResult($result);

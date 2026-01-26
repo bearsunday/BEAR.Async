@@ -9,6 +9,7 @@ use Ray\MediaQuery\Annotation\DbQuery;
 interface AnalyticsQueryInterface
 {
     // Author analytics
+
     /** @return array<array<mixed>> */
     #[DbQuery('top_authors_by_posts')]
     public function topAuthorsByPosts(int $limit = 20): array;
@@ -30,6 +31,7 @@ interface AnalyticsQueryInterface
     public function authorStats(int $limit = 20): array;
 
     // Post analytics
+
     /** @return array<array<mixed>> */
     #[DbQuery('popular_posts_with_stats')]
     public function popularPosts(int $limit = 20): array;
@@ -51,6 +53,7 @@ interface AnalyticsQueryInterface
     public function postsWithNoComments(int $limit = 20): array;
 
     // Comment analytics
+
     /** @return array<array<mixed>> */
     #[DbQuery('top_commenters')]
     public function topCommenters(int $limit = 20): array;
@@ -72,6 +75,7 @@ interface AnalyticsQueryInterface
     public function recentEngagement(int $limit = 20): array;
 
     // Tag analytics
+
     /** @return array<array<mixed>> */
     #[DbQuery('trending_tags')]
     public function trendingTags(int $limit = 20): array;
@@ -93,6 +97,7 @@ interface AnalyticsQueryInterface
     public function unusedTags(int $limit = 20): array;
 
     // Cross-entity analytics
+
     /** @return array<array<mixed>> */
     #[DbQuery('author_tag_matrix')]
     public function authorTagMatrix(int $limit = 20): array;

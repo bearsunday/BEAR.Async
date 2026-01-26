@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace BEAR\Async\Adapter;
 
 use BEAR\Async\AsyncInterface;
+use BEAR\Async\EmbedTask;
 use BEAR\Async\Exception\BootstrapFileException;
 use BEAR\Async\Qualifier\AppDir;
 use BEAR\Async\Qualifier\AppNamespace;
 use BEAR\Async\Qualifier\Context;
 use BEAR\Async\Qualifier\PoolSize;
+use BEAR\Async\RequestTask;
+use BEAR\Resource\Request;
 use parallel\Future;
 use parallel\Runtime;
 
@@ -98,9 +101,7 @@ PHP;
 
         foreach ($taskList as $i => $task) {
             $runtime = $this->pool[$i % $this->poolSize];
-            $uri = (string) $task->getRequest()->resourceObject->uri;
-            /** @var array<string, mixed> $query */
-            $query = $task->getRequest()->query ?? [];
+            [$uri, $query] = $this->extractUriAndQuery($task);
 
             $future = $runtime->run(
                 /**
@@ -129,6 +130,22 @@ PHP;
             $result = $future->value();
             $taskList[$i]->setResult($result);
         }
+    }
+
+    /**
+     * Extract URI and query from task
+     *
+     * @return array{0: string, 1: array<string, mixed>}
+     */
+    private function extractUriAndQuery(RequestTask|EmbedTask $task): array
+    {
+        $request = $task->getRequest();
+        $uri = (string) $request->resourceObject->uri;
+
+        // Request class has public query property
+        $query = $request instanceof Request ? $request->query : [];
+
+        return [$uri, $query];
     }
 
     public function isAvailable(): bool
