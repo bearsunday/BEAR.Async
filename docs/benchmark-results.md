@@ -27,6 +27,21 @@ docker-compose run --rm php php demo/bin/parallel-benchmark.php 5
 docker-compose run --rm php php demo/bin/swoole-benchmark.php 5
 ```
 
+## Simulation Methodology
+
+Each embedded resource uses `SlowQueryInterceptor` to add artificial delay, simulating realistic I/O latency. This approach provides reproducible benchmarks that reflect real-world conditions:
+
+| Operation | Typical Latency |
+|-----------|-----------------|
+| Simple SELECT | 1-5ms |
+| JOIN/Aggregation | 10-50ms |
+| Network latency (RDS) | 1-10ms |
+| Template processing | 1-10ms |
+
+The default 10ms delay represents a conservative, realistic per-resource overhead combining SQL execution, network latency, and processing time.
+
+You can verify these results in our [CI benchmark workflow](https://github.com/bearsunday/BEAR.Async/actions/workflows/async-benchmark.yml), which runs on every push and pull request.
+
 ## Benchmark Scenarios
 
 Each benchmark tests a dashboard resource that embeds multiple slow resources. Each embedded resource simulates database latency with configurable delays.
