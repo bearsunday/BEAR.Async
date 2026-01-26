@@ -6,11 +6,11 @@ namespace BEAR\Async\Module;
 
 use BEAR\Async\Adapter\SwooleAsync;
 use BEAR\Async\AsyncInterface;
-use BEAR\Async\AsyncLinker;
+use BEAR\Async\AsyncLinkCrawler;
 use BEAR\Async\Exception\ExtensionNotLoadedException;
 use BEAR\Async\PendingRequests;
 use BEAR\Async\SwoolePendingRequestsProvider;
-use BEAR\Resource\LinkerInterface;
+use BEAR\Resource\LinkCrawlerInterface;
 use Override;
 use Ray\Di\AbstractModule;
 use Ray\Di\Scope;
@@ -24,7 +24,7 @@ use function extension_loaded;
  * All tasks are executed concurrently using WaitGroup.
  *
  * Features:
- * - Parallel linkCrawl() execution via AsyncLinker
+ * - Parallel linkCrawl() execution via AsyncLinkCrawler
  * - Parallel #[Embed] execution via AsyncEmbedModule
  *
  * Requirements:
@@ -51,7 +51,7 @@ final class AsyncSwooleModule extends AbstractModule
         }
 
         $this->bind(AsyncInterface::class)->to(SwooleAsync::class)->in(Scope::SINGLETON);
-        $this->bind(LinkerInterface::class)->to(AsyncLinker::class);
+        $this->bind(LinkCrawlerInterface::class)->to(AsyncLinkCrawler::class);
 
         // Install AsyncEmbedModule for parallel #[Embed] support
         $this->install(new AsyncEmbedModule());
