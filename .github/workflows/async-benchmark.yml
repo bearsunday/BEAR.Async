@@ -1,3 +1,22 @@
+# Async Benchmark with pre-built Docker image caching
+#
+# This workflow caches the Docker image in ghcr.io to avoid rebuilding
+# PHP extensions (parallel, swoole) on every run.
+#
+# AWS CodeBuild + ECR equivalent:
+#   phases:
+#     pre_build:
+#       commands:
+#         - aws ecr get-login-password | docker login --username AWS --password-stdin $ECR_REGISTRY
+#         - docker pull $ECR_REGISTRY/bear-async-php:latest || true
+#     build:
+#       commands:
+#         - |
+#           if [ -z "$(docker images -q $ECR_REGISTRY/bear-async-php:latest)" ]; then
+#             docker build -t $ECR_REGISTRY/bear-async-php:latest .
+#             docker push $ECR_REGISTRY/bear-async-php:latest
+#           fi
+
 name: Async Benchmark
 
 on:
