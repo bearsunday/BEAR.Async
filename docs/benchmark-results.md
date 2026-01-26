@@ -119,36 +119,3 @@ Sync:     553.67ms (avg)
 Parallel:  58.91ms (avg)
 Speedup:   9.40x
 ```
-
-## Troubleshooting
-
-### ext-parallel not available
-
-```bash
-# Check if extension is loaded
-docker-compose run --rm php php -m | grep parallel
-```
-
-### ext-swoole not available
-
-```bash
-# Check if extension is loaded
-docker-compose run --rm php php -m | grep swoole
-```
-
-### Database connection errors
-
-Ensure MySQL is running and healthy:
-
-```bash
-docker-compose up -d mysql
-docker-compose exec mysql mysqladmin ping -h localhost -uroot
-```
-
-### Connection pool exhaustion (Swoole)
-
-If you see pool timeout errors, increase pool size:
-
-```php
-$this->install(new PdoPoolModule($dsn, $user, $pass, 128)); // Increase from 64
-```
