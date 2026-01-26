@@ -30,13 +30,10 @@ jobs:
           coverage: pcov
           ini-values: zend.assertions=1
 
-      - name: Install dependencies (lowest)
-        if: matrix.dependencies == 'lowest'
-        run: composer update --prefer-lowest --prefer-dist --no-interaction --no-progress
-
-      - name: Install dependencies (highest)
-        if: matrix.dependencies == 'highest'
-        run: composer update --prefer-dist --no-interaction --no-progress
+      - name: Install dependencies
+        uses: ramsey/composer-install@v3
+        with:
+          dependency-versions: ${{ matrix.dependencies }}
 
       - name: Run PHPUnit
         run: ./vendor/bin/phpunit --coverage-text
@@ -59,7 +56,7 @@ jobs:
           phpts: zts
 
       - name: Install dependencies
-        run: composer update --prefer-dist --no-interaction --no-progress
+        uses: ramsey/composer-install@v3
 
       - name: Run PHPUnit (parallel group)
         run: ./vendor/bin/phpunit --group parallel

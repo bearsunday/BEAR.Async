@@ -11,8 +11,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: docker compose build php
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+
+      - name: Build Docker image with cache
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: bearasync-php:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Start MySQL
         run: docker compose up -d mysql
@@ -33,6 +44,16 @@ jobs:
             echo "MySQL failed to become ready"
             exit 1
           fi
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            vendor
+            demo/vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock', 'demo/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
 
       - name: Install main dependencies
         run: docker compose run --rm php composer install --prefer-dist --no-interaction

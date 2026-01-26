@@ -1,5 +1,6 @@
 services:
   php:
+    image: bearasync-php:latest
     build: .
     volumes:
       - .:/app
