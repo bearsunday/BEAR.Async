@@ -27,6 +27,7 @@ final class SwoolePendingRequestsProvider implements ProviderInterface
 
     public function get(): PendingRequests
     {
+        /** @var \ArrayObject<string, mixed> $context */
         $context = Coroutine::getContext();
 
         if (! isset($context[self::CONTEXT_KEY])) {
