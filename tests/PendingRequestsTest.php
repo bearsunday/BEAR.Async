@@ -105,4 +105,30 @@ class PendingRequestsTest extends TestCase
 
         $this->assertSame($result1, $result2);
     }
+
+    public function testDifferentQueriesAreNotDeduplicated(): void
+    {
+        $invoker = $this->createMock(InvokerInterface::class);
+        $ro = new FakeResourceObject('app://self/user');
+        $ro->body = ['name' => 'Test'];
+
+        // Invoker should be called twice for different queries
+        $invoker->expects($this->exactly(2))
+            ->method('invoke')
+            ->willReturn($ro);
+
+        $request1 = new Request($invoker, $ro, 'get', ['id' => '1']);
+        $request2 = new Request($invoker, $ro, 'get', ['id' => '2']);
+
+        $pendingRequests = new PendingRequests(new SyncAsync());
+        $asyncRequest1 = new AsyncRequest($request1, $pendingRequests);
+        $asyncRequest2 = new AsyncRequest($request2, $pendingRequests);
+
+        // Different URIs (due to different query params) should both execute
+        (string) $asyncRequest1;
+        (string) $asyncRequest2;
+
+        // Verify URIs are different
+        $this->assertNotSame($asyncRequest1->uri, $asyncRequest2->uri);
+    }
 }
