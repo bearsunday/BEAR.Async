@@ -20,7 +20,7 @@ Traditional async programming requires rewriting code with special syntax like a
 public function onGet(int $user_id): static
 ```
 
-With BEAR.Async module installed, these 3 embeds execute **in parallel** instead of sequentially.
+With BEAR.Async module installed, these 3 embeds execute **in parallel** instead of sequentially. If each resource takes 50ms to fetch, synchronous execution takes 150ms total, while parallel execution completes in approximately 50ms—a 3x speedup with zero code changes.
 
 ## Modules
 
@@ -56,6 +56,4 @@ $this->install(new PdoPoolEnvModule(
 
 ## Requirements
 
-- PHP 8.2+
-- bear/resource ^1.17
 - ext-parallel or ext-swoole
