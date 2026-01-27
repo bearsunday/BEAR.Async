@@ -11,7 +11,7 @@
     ],
     "require": {
         "php": "^8.2",
-        "bear/resource": "^1.30",
+        "bear/resource": "dev-pure-singleton-resource",
         "ray/di": "^2.18"
     },
     "require-dev": {
