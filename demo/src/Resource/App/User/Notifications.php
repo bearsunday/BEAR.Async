@@ -8,8 +8,6 @@ use BEAR\AsyncDemo\Annotation\SlowQuery;
 use BEAR\AsyncDemo\Query\NotificationQueryInterface;
 use BEAR\Resource\ResourceObject;
 
-use function array_map;
-
 /**
  * User notifications resource
  */
@@ -24,7 +22,7 @@ class Notifications extends ResourceObject
     public function onGet(int $user_id): static
     {
         $notifications = $this->notificationQuery->listByUser($user_id);
-        $this->body = array_map(static fn ($n) => (array) $n, $notifications);
+        $this->body = array_map(static fn($n) => (array) $n, $notifications);
 
         return $this;
     }

@@ -9,7 +9,9 @@ use Ray\MediaQuery\Annotation\DbQuery;
 
 interface CategoryQueryInterface
 {
-    /** @return list<Category> */
+    /**
+     * @return list<Category>
+     */
     #[DbQuery('category_list')]
     public function list(): array;
 }

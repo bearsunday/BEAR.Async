@@ -8,8 +8,6 @@ use Swoole\Coroutine;
 
 require dirname(__DIR__) . '/autoload.php';
 
-@unlink('/tmp/render-debug.log');
-
 if (! extension_loaded('swoole')) {
     echo "ext-swoole is not loaded\n";
     exit(1);
@@ -74,9 +72,4 @@ Coroutine\run(static function () use ($iterations): void {
     $data = json_decode($view, true);
     $embedCount = isset($data['_embedded']) ? count($data['_embedded']) : 0;
     printf("\nVerification: %d embedded resources in HAL output\n", $embedCount);
-
-    if (file_exists('/tmp/render-debug.log')) {
-        echo "\n=== Render Log ===\n";
-        echo file_get_contents('/tmp/render-debug.log');
-    }
 });

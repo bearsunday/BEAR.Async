@@ -9,7 +9,9 @@ use Ray\MediaQuery\Annotation\DbQuery;
 
 interface ActivityQueryInterface
 {
-    /** @return list<Activity> */
+    /**
+     * @return list<Activity>
+     */
     #[DbQuery('activity_list_by_user')]
     public function listByUser(int $user_id, int $limit = 10): array;
 }

@@ -10,8 +10,8 @@ final class PostWithAuthor
         public readonly int $id,
         public readonly string $title,
         public readonly string $author_name,
-        public readonly int|null $view_count = null,
-        public readonly string|null $created_at = null,
+        public readonly ?int $view_count = null,
+        public readonly ?string $created_at = null,
     ) {
     }
 }

@@ -28,8 +28,7 @@ use const FILE_APPEND;
 final class SlowQueryInterceptor implements MethodInterceptor
 {
     public function __construct(
-        #[Named('slow_query_delay_ms')]
-        private readonly int $delayMs,
+        #[Named('slow_query_delay_ms')] private readonly int $delayMs,
     ) {
     }
 

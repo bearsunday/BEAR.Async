@@ -9,7 +9,9 @@ use Ray\MediaQuery\Annotation\DbQuery;
 
 interface AuthorQueryInterface
 {
-    /** @return list<Author> */
+    /**
+     * @return list<Author>
+     */
     #[DbQuery('author_list')]
     public function list(): array;
 }

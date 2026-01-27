@@ -10,15 +10,21 @@ use Ray\MediaQuery\Annotation\DbQuery;
 
 interface PostQueryInterface
 {
-    /** @return list<Post> */
+    /**
+     * @return list<Post>
+     */
     #[DbQuery('post_list_by_author')]
     public function listByAuthor(int $author_id): array;
 
-    /** @return list<PostWithAuthor> */
+    /**
+     * @return list<PostWithAuthor>
+     */
     #[DbQuery('post_list_recent')]
     public function listRecent(int $limit = 5): array;
 
-    /** @return list<PostWithAuthor> */
+    /**
+     * @return list<PostWithAuthor>
+     */
     #[DbQuery('post_list_popular')]
     public function listPopular(int $limit = 5): array;
 }

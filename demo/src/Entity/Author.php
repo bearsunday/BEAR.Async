@@ -10,7 +10,7 @@ final class Author
         public readonly int $id,
         public readonly string $name,
         public readonly string $email,
-        public readonly string|null $bio,
+        public readonly ?string $bio,
     ) {
     }
 }

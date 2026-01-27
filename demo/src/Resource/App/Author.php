@@ -8,8 +8,6 @@ use BEAR\AsyncDemo\Query\AuthorQueryInterface;
 use BEAR\Resource\Annotation\Link;
 use BEAR\Resource\ResourceObject;
 
-use function array_map;
-
 /**
  * Author resource - crawl root
  *
@@ -26,7 +24,7 @@ class Author extends ResourceObject
     public function onGet(): static
     {
         $authors = $this->authorQuery->list();
-        $this->body = array_map(static fn ($a) => (array) $a, $authors);
+        $this->body = array_map(static fn($a) => (array) $a, $authors);
 
         return $this;
     }

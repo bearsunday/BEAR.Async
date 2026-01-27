@@ -8,8 +8,6 @@ use BEAR\AsyncDemo\Query\PostQueryInterface;
 use BEAR\Resource\Annotation\Link;
 use BEAR\Resource\ResourceObject;
 
-use function array_map;
-
 /**
  * Post resource - crawl level 2
  *
@@ -27,7 +25,7 @@ class Post extends ResourceObject
     public function onGet(int $author_id): static
     {
         $posts = $this->postQuery->listByAuthor($author_id);
-        $this->body = array_map(static fn ($p) => (array) $p, $posts);
+        $this->body = array_map(static fn($p) => (array) $p, $posts);
 
         return $this;
     }
