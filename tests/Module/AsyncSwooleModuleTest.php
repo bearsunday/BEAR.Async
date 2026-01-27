@@ -6,8 +6,8 @@ namespace BEAR\Async\Module;
 
 use BEAR\Async\Adapter\SwooleAsync;
 use BEAR\Async\AsyncInterface;
-use BEAR\Async\AsyncLinker;
-use BEAR\Resource\LinkerInterface;
+use BEAR\Async\AsyncLinkCrawler;
+use BEAR\Resource\LinkCrawlerInterface;
 use BEAR\Resource\Module\ResourceModule;
 use PHPUnit\Framework\TestCase;
 use Ray\Di\AbstractModule;
@@ -41,14 +41,14 @@ class AsyncSwooleModuleTest extends TestCase
         $this->assertInstanceOf(SwooleAsync::class, $async);
     }
 
-    public function testLinkerInterfaceBinding(): void
+    public function testLinkCrawlerInterfaceBinding(): void
     {
         $resourceModule = new ResourceModule('FakeVendor\Sandbox');
         $resourceModule->override(new AsyncSwooleModule());
 
         $injector = new Injector($resourceModule);
-        $linker = $injector->getInstance(LinkerInterface::class);
+        $linkCrawler = $injector->getInstance(LinkCrawlerInterface::class);
 
-        $this->assertInstanceOf(AsyncLinker::class, $linker);
+        $this->assertInstanceOf(AsyncLinkCrawler::class, $linkCrawler);
     }
 }

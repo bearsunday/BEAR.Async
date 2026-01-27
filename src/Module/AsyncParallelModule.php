@@ -12,6 +12,7 @@ use BEAR\Async\Qualifier\AppDir;
 use BEAR\Async\Qualifier\AppNamespace;
 use BEAR\Async\Qualifier\Context;
 use BEAR\Async\Qualifier\PoolSize;
+use BEAR\Resource\LinkCrawler;
 use BEAR\Resource\LinkCrawlerInterface;
 use Override;
 use Ray\Di\AbstractModule;
@@ -88,6 +89,7 @@ final class AsyncParallelModule extends AbstractModule
         $this->bind()->annotatedWith(PoolSize::class)->toInstance($this->poolSize);
         // ParallelAsync must be singleton to reuse thread pool across requests
         $this->bind(AsyncInterface::class)->to(ParallelAsync::class)->in(Scope::SINGLETON);
+        $this->bind(LinkCrawler::class);
         $this->bind(LinkCrawlerInterface::class)->to(AsyncLinkCrawler::class);
 
         // Install AsyncEmbedModule for parallel #[Embed] support

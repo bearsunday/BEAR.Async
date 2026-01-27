@@ -8,22 +8,18 @@ use BEAR\Resource\Annotation\Link;
 use BEAR\Resource\DataLoader\DataLoader;
 use BEAR\Resource\FactoryInterface;
 use BEAR\Resource\InvokerInterface;
+use BEAR\Resource\LinkCrawler;
 use BEAR\Resource\LinkCrawlerInterface;
 use BEAR\Resource\LinkType;
 use BEAR\Resource\Request;
-use BEAR\Resource\Uri;
 use BEAR\Resource\ResourceObject;
+use BEAR\Resource\Uri;
 use Override;
 use ReflectionMethod;
 
-use function array_filter;
 use function array_key_exists;
-use function array_keys;
 use function array_map;
-use function array_pop;
-use function count;
 use function is_array;
-use function is_numeric;
 use function ucfirst;
 use function uri_template;
 
@@ -53,6 +49,7 @@ final class AsyncLinkCrawler implements LinkCrawlerInterface
         private readonly InvokerInterface $invoker,
         private readonly FactoryInterface $factory,
         private readonly AsyncInterface $async,
+        private readonly LinkCrawler $linkCrawler,
         private readonly DataLoader|null $dataLoader = null,
     ) {
     }
@@ -226,57 +223,12 @@ final class AsyncLinkCrawler implements LinkCrawlerInterface
         );
     }
 
-    private function isList(mixed $value): bool
-    {
-        if (! is_array($value) || $value === []) {
-            return false;
-        }
-
-        /** @var BodyList $list */
-        $list = $value;
-        /** @var mixed $firstRow */
-        $firstRow = array_pop($list);
-        $keys = array_keys((array) $firstRow);
-
-        return $this->isSingleColumnList($value, $keys, $list)
-            || $this->isMultiColumnMultiRowList($keys, $list)
-            || $this->isMultiColumnList($value, $firstRow);
-    }
-
     /**
-     * @param list<array-key> $keys
-     * @psalm-param BodyList   $list
+     * {@inheritDoc}
      */
-    private function isMultiColumnMultiRowList(array $keys, array $list): bool
+    #[Override]
+    public function isList(mixed $value): bool
     {
-        if ($keys === [0 => 0]) {
-            return false;
-        }
-
-        foreach ($list as $item) {
-            if ($keys !== array_keys((array) $item)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * @param array<mixed> $value
-     */
-    private function isMultiColumnList(array $value, mixed $firstRow): bool
-    {
-        return is_array($firstRow) && array_filter(array_keys($value), is_numeric(...)) === array_keys($value);
-    }
-
-    /**
-     * @param array<mixed>    $value
-     * @param list<array-key> $keys
-     * @param array<mixed>    $list
-     */
-    private function isSingleColumnList(array $value, array $keys, array $list): bool
-    {
-        return (count($value) === 1) && $keys === array_keys($list);
+        return $this->linkCrawler->isList($value);
     }
 }

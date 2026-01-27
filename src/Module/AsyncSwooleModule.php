@@ -10,6 +10,7 @@ use BEAR\Async\AsyncLinkCrawler;
 use BEAR\Async\Exception\ExtensionNotLoadedException;
 use BEAR\Async\PendingRequests;
 use BEAR\Async\SwoolePendingRequestsProvider;
+use BEAR\Resource\LinkCrawler;
 use BEAR\Resource\LinkCrawlerInterface;
 use Override;
 use Ray\Di\AbstractModule;
@@ -51,6 +52,7 @@ final class AsyncSwooleModule extends AbstractModule
         }
 
         $this->bind(AsyncInterface::class)->to(SwooleAsync::class)->in(Scope::SINGLETON);
+        $this->bind(LinkCrawler::class);
         $this->bind(LinkCrawlerInterface::class)->to(AsyncLinkCrawler::class);
 
         // Install AsyncEmbedModule for parallel #[Embed] support
