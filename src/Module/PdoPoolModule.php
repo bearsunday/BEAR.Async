@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace BEAR\Async\Module;
 
-use BEAR\Async\PdoPool;
 use BEAR\Async\PdoPoolProvider;
 use BEAR\Async\PooledPdoProvider;
 use PDO;
 use Ray\Di\AbstractModule;
 use Ray\Di\Scope;
+use Swoole\Database\PDOPool;
 
 /**
- * PDO connection pool module for Swoole coroutine environments
+ * PDO connection pool module using Swoole's built-in PDOPool
  *
  * This module provides a connection pool for PDO instances in Swoole
  * coroutine environments. When multiple coroutines need database access,
@@ -59,8 +59,8 @@ final class PdoPoolModule extends AbstractModule
         $this->bind()->annotatedWith('pdo_pool_pass')->toInstance($this->pass);
         $this->bind()->annotatedWith('pdo_pool_size')->toInstance($this->poolSize);
 
-        // PdoPool is created at runtime by provider to avoid Swoole\Lock serialization issues
-        $this->bind(PdoPool::class)->toProvider(PdoPoolProvider::class)->in(Scope::SINGLETON);
+        // Swoole\Database\PDOPool is created at runtime by provider
+        $this->bind(PDOPool::class)->toProvider(PdoPoolProvider::class)->in(Scope::SINGLETON);
         $this->bind(PDO::class)->toProvider(PooledPdoProvider::class);
     }
 }

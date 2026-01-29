@@ -7,9 +7,10 @@ namespace BEAR\AsyncDemo\Module;
 use Aura\Sql\DecoratedPdo;
 use Aura\Sql\ExtendedPdoInterface;
 use BEAR\Async\Exception\NotInCoroutineException;
-use BEAR\Async\PdoPool;
+use BEAR\Async\Exception\PoolTimeoutException;
 use Ray\Di\ProviderInterface;
 use Swoole\Coroutine;
+use Swoole\Database\PDOPool;
 
 /**
  * Provider that supplies ExtendedPdoInterface instances from the connection pool
@@ -25,7 +26,7 @@ use Swoole\Coroutine;
 final class PooledExtendedPdoProvider implements ProviderInterface
 {
     public function __construct(
-        private readonly PdoPool $pool,
+        private readonly PDOPool $pool,
     ) {
     }
 
@@ -36,6 +37,7 @@ final class PooledExtendedPdoProvider implements ProviderInterface
      * the coroutine completes via defer().
      *
      * @throws NotInCoroutineException if called outside a Swoole coroutine context
+     * @throws PoolTimeoutException    if timeout occurs while waiting for a connection
      */
     public function get(): ExtendedPdoInterface
     {
@@ -44,6 +46,10 @@ final class PooledExtendedPdoProvider implements ProviderInterface
         }
 
         $pdo = $this->pool->get();
+        if ($pdo === false) {
+            throw new PoolTimeoutException();
+        }
+
         Coroutine::defer(fn () => $this->pool->put($pdo));
 
         return new DecoratedPdo($pdo);

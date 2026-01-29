@@ -6,31 +6,31 @@ namespace BEAR\Async;
 
 use BEAR\Async\Exception\NotInCoroutineException;
 use BEAR\Async\Exception\PoolTimeoutException;
-use PDO;
 use Ray\Di\ProviderInterface;
+use Redis;
 use Swoole\Coroutine;
-use Swoole\Database\PDOPool;
+use Swoole\Database\RedisPool;
 
 /**
- * Provider that supplies PDO instances from Swoole's connection pool
+ * Provider that supplies Redis instances from Swoole's connection pool
  *
- * This provider retrieves a PDO connection from the pool and automatically
+ * This provider retrieves a Redis connection from the pool and automatically
  * returns it when the coroutine ends using Swoole's defer() function.
  *
  * IMPORTANT: This provider must be used within a Swoole coroutine context.
  * Calling get() outside a coroutine will throw a NotInCoroutineException.
  *
- * @implements ProviderInterface<PDO>
+ * @implements ProviderInterface<Redis>
  */
-final class PooledPdoProvider implements ProviderInterface
+final class PooledRedisProvider implements ProviderInterface
 {
     public function __construct(
-        private readonly PDOPool $pool,
+        private readonly RedisPool $pool,
     ) {
     }
 
     /**
-     * Get a PDO instance from the pool
+     * Get a Redis instance from the pool
      *
      * The connection is automatically returned to the pool when
      * the coroutine completes via defer().
@@ -40,20 +40,20 @@ final class PooledPdoProvider implements ProviderInterface
      *
      * @codeCoverageIgnore Requires Swoole coroutine context
      */
-    public function get(): PDO
+    public function get(): Redis
     {
         if (Coroutine::getCid() === -1) {
             throw new NotInCoroutineException();
         }
 
-        $pdo = $this->pool->get();
+        $redis = $this->pool->get();
 
-        if ($pdo === false) {
+        if ($redis === false) {
             throw new PoolTimeoutException();
         }
 
-        Coroutine::defer(fn () => $this->pool->put($pdo));
+        Coroutine::defer(fn () => $this->pool->put($redis));
 
-        return $pdo;
+        return $redis;
     }
 }
