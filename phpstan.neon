@@ -22,6 +22,8 @@ parameters:
         - '#class Redis#'
         - '#should return PDO.*but returns#'
         - '#will always evaluate to false#'
+        - '#Cannot call method with[A-Za-z]+\(\) on mixed#'
+        - '#should return Redis but returns mixed#'
         - '#Call to an undefined method BEAR\\Resource\\ResourceObject::on[A-Za-z]+\(\)#'
         - '#has invalid type BEAR\\Resource\\DataLoader\\DataLoader#'
         - '#has unknown class BEAR\\Resource\\DataLoader\\DataLoader#'

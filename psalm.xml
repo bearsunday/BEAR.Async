@@ -69,6 +69,7 @@
                 <file name="src/PooledRedisProvider.php"/>
             </errorLevel>
         </MissingClosureReturnType>
+        <UnusedIssueHandlerSuppression errorLevel="suppress" />
         <UndefinedDocblockClass>
             <errorLevel type="suppress">
                 <file name="src/PdoPoolProvider.php"/>
