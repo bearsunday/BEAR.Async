@@ -52,7 +52,9 @@ final class PooledPdoProvider implements ProviderInterface
             throw new PoolTimeoutException();
         }
 
-        Coroutine::defer(fn () => $this->pool->put($pdo));
+        Coroutine::defer(function () use ($pdo): void {
+            $this->pool->put($pdo);
+        });
 
         return $pdo;
     }

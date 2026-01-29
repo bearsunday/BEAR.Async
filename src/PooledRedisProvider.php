@@ -52,7 +52,9 @@ final class PooledRedisProvider implements ProviderInterface
             throw new PoolTimeoutException();
         }
 
-        Coroutine::defer(fn () => $this->pool->put($redis));
+        Coroutine::defer(function () use ($redis): void {
+            $this->pool->put($redis);
+        });
 
         return $redis;
     }
