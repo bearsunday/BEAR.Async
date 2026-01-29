@@ -8,9 +8,12 @@ use Aura\Sql\DecoratedPdo;
 use Aura\Sql\ExtendedPdoInterface;
 use BEAR\Async\Exception\NotInCoroutineException;
 use BEAR\Async\Exception\PoolTimeoutException;
+use PDO;
 use Ray\Di\ProviderInterface;
+use ReflectionClass;
 use Swoole\Coroutine;
 use Swoole\Database\PDOPool;
+use Swoole\Database\PDOProxy;
 
 /**
  * Provider that supplies ExtendedPdoInterface instances from the connection pool
@@ -45,13 +48,30 @@ final class PooledExtendedPdoProvider implements ProviderInterface
             throw new NotInCoroutineException();
         }
 
-        $pdo = $this->pool->get();
-        if ($pdo === false) {
+        $proxy = $this->pool->get();
+        if ($proxy === false) {
             throw new PoolTimeoutException();
         }
 
-        Coroutine::defer(fn () => $this->pool->put($pdo));
+        Coroutine::defer(function () use ($proxy): void {
+            $this->pool->put($proxy);
+        });
+
+        // Extract the actual PDO from PDOProxy for DecoratedPdo compatibility
+        $pdo = $this->extractPdo($proxy);
 
         return new DecoratedPdo($pdo);
+    }
+
+    /**
+     * Extract the actual PDO instance from a PDOProxy
+     */
+    private function extractPdo(PDOProxy $proxy): PDO
+    {
+        $reflection = new ReflectionClass($proxy);
+        $property = $reflection->getProperty('__object');
+
+        /** @var PDO */
+        return $property->getValue($proxy);
     }
 }
