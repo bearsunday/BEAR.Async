@@ -105,9 +105,11 @@ jobs:
 
       - name: Run ext-swoole benchmark
         run: |
-          result=$(docker compose run --rm php php demo/bin/swoole-benchmark.php 3)
-          echo "$result"
-          # Swoole benchmark doesn't require specific speedup threshold
+          docker compose run --rm php php demo/bin/swoole-benchmark.php 3 2>&1 || {
+            echo "Swoole benchmark failed, checking for errors..."
+            docker compose run --rm php php -r "require 'demo/autoload.php';" 2>&1 || true
+            exit 1
+          }
 
       - name: Cleanup
         if: always()
