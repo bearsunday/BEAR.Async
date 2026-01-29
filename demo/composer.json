@@ -12,7 +12,7 @@
     "require": {
         "php": "^8.2.0",
         "koriym/env-json": "^1.0",
-        "bear/async": "1.x-dev",
+        "bear/async": "@dev",
         "bear/package": "^1.14",
         "bear/sunday": "^1.6",
         "ray/aop": "^2.12",
