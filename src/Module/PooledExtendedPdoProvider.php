@@ -48,6 +48,7 @@ final class PooledExtendedPdoProvider implements ProviderInterface
             throw new NotInCoroutineException();
         }
 
+        /** @var PDOProxy|false $proxy */
         $proxy = $this->pool->get();
         if ($proxy === false) {
             throw new PoolTimeoutException();
