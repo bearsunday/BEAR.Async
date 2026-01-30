@@ -47,6 +47,11 @@
                 <file name="src/RedisPoolProvider.php"/>
             </errorLevel>
         </MixedMethodCall>
+        <MixedArgument>
+            <errorLevel type="suppress">
+                <file name="src/Module/PooledExtendedPdoProvider.php"/>
+            </errorLevel>
+        </MixedArgument>
         <MixedAssignment>
             <errorLevel type="suppress">
                 <directory name="src/Adapter"/>
@@ -54,6 +59,7 @@
                 <file name="src/PooledRedisProvider.php"/>
                 <file name="src/PdoPoolProvider.php"/>
                 <file name="src/RedisPoolProvider.php"/>
+                <file name="src/Module/PooledExtendedPdoProvider.php"/>
             </errorLevel>
         </MixedAssignment>
         <MixedReturnStatement>
@@ -68,6 +74,7 @@
                 <file name="src/PdoPoolProvider.php"/>
                 <file name="src/RedisPoolProvider.php"/>
                 <file name="src/PooledRedisProvider.php"/>
+                <file name="src/Module/PooledExtendedPdoProvider.php"/>
             </errorLevel>
         </UndefinedDocblockClass>
         <RedundantCast>

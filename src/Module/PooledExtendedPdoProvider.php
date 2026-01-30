@@ -48,7 +48,6 @@ final class PooledExtendedPdoProvider implements ProviderInterface
             throw new NotInCoroutineException();
         }
 
-        /** @var PDOProxy|false $proxy */
         $proxy = $this->pool->get();
         if ($proxy === false) {
             throw new PoolTimeoutException();
@@ -58,7 +57,10 @@ final class PooledExtendedPdoProvider implements ProviderInterface
             $this->pool->put($proxy);
         });
 
-        // Extract the actual PDO from PDOProxy for DecoratedPdo compatibility
+        // Extract the actual PDO from PDOProxy for DecoratedPdo compatibility.
+        // PDOProxy uses a private `__object` property to hold the real PDO.
+        // This is Swoole's internal implementation detail.
+        // @see \Swoole\Database\PDOProxy::$__object
         $pdo = $this->extractPdo($proxy);
 
         return new DecoratedPdo($pdo);
@@ -66,11 +68,6 @@ final class PooledExtendedPdoProvider implements ProviderInterface
 
     /**
      * Extract the actual PDO instance from a PDOProxy
-     *
-     * PDOProxy uses a private `__object` property to hold the real PDO.
-     * This is Swoole's internal implementation detail.
-     *
-     * @see \Swoole\Database\PDOProxy::$__object
      */
     private function extractPdo(PDOProxy $proxy): PDO
     {
