@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace BEAR\AsyncDemo\Module;
+namespace BEAR\Async\Module;
 
 use Aura\Sql\DecoratedPdo;
 use Aura\Sql\ExtendedPdoInterface;
@@ -65,6 +65,11 @@ final class PooledExtendedPdoProvider implements ProviderInterface
 
     /**
      * Extract the actual PDO instance from a PDOProxy
+     *
+     * PDOProxy uses a private `__object` property to hold the real PDO.
+     * This is Swoole's internal implementation detail.
+     *
+     * @see \Swoole\Database\PDOProxy::$__object
      */
     private function extractPdo(PDOProxy $proxy): PDO
     {

@@ -11,6 +11,7 @@
     ],
     "require": {
         "php": "^8.2",
+        "aura/sql": "^5.0 || ^6.0",
         "bear/resource": "^1.30",
         "ray/di": "^2.18"
     },

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BEAR\Async\Module;
 
+use Aura\Sql\ExtendedPdoInterface;
 use BEAR\Async\Exception\MissingEnvException;
 use BEAR\Async\PdoPoolProvider;
 use BEAR\Async\PooledPdoProvider;
@@ -69,6 +70,7 @@ final class PdoPoolEnvModule extends AbstractModule
 
         $this->bind(PDOPool::class)->toProvider(PdoPoolProvider::class)->in(Scope::SINGLETON);
         $this->bind(PDO::class)->toProvider(PooledPdoProvider::class);
+        $this->bind(ExtendedPdoInterface::class)->toProvider(PooledExtendedPdoProvider::class);
     }
 
     private function getRequiredEnv(string $name): string
