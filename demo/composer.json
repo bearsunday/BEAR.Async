@@ -13,7 +13,7 @@
         "php": "^8.2.0",
         "koriym/env-json": "^1.0",
         "bear/async": "1.x-dev",
-        "bear/resource": "dev-pure-singleton-resource",
+        "bear/resource": "dev-pure-singleton-resource as 1.30.0",
         "bear/package": "^1.14",
         "bear/sunday": "^1.6",
         "ray/aop": "^2.12",
@@ -104,8 +104,6 @@
         "xprofile-parallel": "Profile dashboard (parallel) with Xdebug",
         "xprofile-swoole": "Profile dashboard (swoole) with Xdebug"
     },
-    "minimum-stability": "dev",
-    "prefer-stable": true,
     "config": {
         "sort-packages": true,
         "allow-plugins": {
