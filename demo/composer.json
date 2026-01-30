@@ -104,6 +104,8 @@
         "xprofile-parallel": "Profile dashboard (parallel) with Xdebug",
         "xprofile-swoole": "Profile dashboard (swoole) with Xdebug"
     },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
     "config": {
         "sort-packages": true,
         "allow-plugins": {
