@@ -24,7 +24,7 @@ class Dashboard extends ResourceObject
     #[Embed(rel: 'activity', src: 'app://self/activity/recent?user_id={user_id}')]
     public function onGet(int $user_id = 1): static
     {
-        $this->body += ['user_id' => $user_id];
+        $this->body['user_id'] = $user_id;
 
         return $this;
     }
