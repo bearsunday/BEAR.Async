@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace BEAR\AsyncDemo\Module;
 
-use Aura\Sql\ExtendedPdoInterface;
 use BEAR\Async\Module\AsyncSwooleModule;
 use BEAR\Async\Module\PdoPoolModule;
 use Ray\Di\AbstractModule;
@@ -33,12 +32,12 @@ final class SwooleModule extends AbstractModule
         $this->install(new AsyncSwooleModule());
 
         // Connection pool for coroutine-safe database access
+        // PdoPoolModule now binds both PDO and ExtendedPdoInterface
         $dsn = getenv('DB_DSN') ?: 'mysql:host=127.0.0.1;dbname=demo';
         $user = getenv('DB_USER') ?: 'root';
         $pass = getenv('DB_PASS') ?: '';
 
         $this->install(new PdoPoolModule($dsn, $user, $pass, 64));
-        $this->bind(ExtendedPdoInterface::class)->toProvider(PooledExtendedPdoProvider::class);
 
         // DbQueryInterceptor must NOT be singleton in Swoole context
         // Each coroutine needs its own interceptor with its own database connection

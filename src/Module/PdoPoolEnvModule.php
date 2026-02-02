@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace BEAR\Async\Module;
 
+use Aura\Sql\ExtendedPdoInterface;
 use BEAR\Async\Exception\MissingEnvException;
-use BEAR\Async\PdoPool;
 use BEAR\Async\PdoPoolProvider;
 use BEAR\Async\PooledPdoProvider;
 use PDO;
 use Ray\Di\AbstractModule;
 use Ray\Di\Scope;
+use Swoole\Database\PDOPool;
 
 use function getenv;
 use function sprintf;
@@ -67,8 +68,9 @@ final class PdoPoolEnvModule extends AbstractModule
         $this->bind()->annotatedWith('pdo_pool_pass')->toInstance($pass);
         $this->bind()->annotatedWith('pdo_pool_size')->toInstance($poolSize);
 
-        $this->bind(PdoPool::class)->toProvider(PdoPoolProvider::class)->in(Scope::SINGLETON);
+        $this->bind(PDOPool::class)->toProvider(PdoPoolProvider::class)->in(Scope::SINGLETON);
         $this->bind(PDO::class)->toProvider(PooledPdoProvider::class);
+        $this->bind(ExtendedPdoInterface::class)->toProvider(PooledExtendedPdoProvider::class);
     }
 
     private function getRequiredEnv(string $name): string

@@ -11,7 +11,8 @@
     ],
     "require": {
         "php": "^8.2",
-        "bear/resource": "dev-pure-singleton-resource",
+        "aura/sql": "^5.0 || ^6.0",
+        "bear/resource": "1.x-dev as 1.31.0",
         "ray/di": "^2.18"
     },
     "require-dev": {

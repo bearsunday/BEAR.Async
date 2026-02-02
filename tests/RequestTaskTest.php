@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BEAR\Async;
 
 use BEAR\Resource\InvokerInterface;
+use BEAR\Resource\Method;
 use BEAR\Resource\Request;
 use BEAR\Resource\ResourceObject;
 use PHPUnit\Framework\TestCase;
@@ -15,7 +16,7 @@ class RequestTaskTest extends TestCase
     {
         $invoker = $this->createMock(InvokerInterface::class);
         $ro = $this->createMock(ResourceObject::class);
-        $request = new Request($invoker, $ro, 'get', []);
+        $request = new Request($invoker, $ro, Method::GET, []);
 
         $task = new RequestTask('test-hash', $request);
 
@@ -26,7 +27,7 @@ class RequestTaskTest extends TestCase
     {
         $invoker = $this->createMock(InvokerInterface::class);
         $ro = $this->createMock(ResourceObject::class);
-        $request = new Request($invoker, $ro, 'get', []);
+        $request = new Request($invoker, $ro, Method::GET, []);
 
         $task = new RequestTask('test-hash', $request);
 
@@ -37,7 +38,7 @@ class RequestTaskTest extends TestCase
     {
         $invoker = $this->createMock(InvokerInterface::class);
         $ro = $this->createMock(ResourceObject::class);
-        $request = new Request($invoker, $ro, 'get', []);
+        $request = new Request($invoker, $ro, Method::GET, []);
 
         $task = new RequestTask('test-hash', $request);
 
@@ -48,7 +49,7 @@ class RequestTaskTest extends TestCase
     {
         $invoker = $this->createMock(InvokerInterface::class);
         $ro = $this->createMock(ResourceObject::class);
-        $request = new Request($invoker, $ro, 'get', []);
+        $request = new Request($invoker, $ro, Method::GET, []);
 
         $task = new RequestTask('test-hash', $request);
         $result = ['key' => 'value'];
@@ -62,7 +63,7 @@ class RequestTaskTest extends TestCase
     {
         $invoker = $this->createMock(InvokerInterface::class);
         $ro = $this->createMock(ResourceObject::class);
-        $request = new Request($invoker, $ro, 'get', []);
+        $request = new Request($invoker, $ro, Method::GET, []);
 
         $task = new RequestTask('test-hash', $request);
         $body = ['existing' => 'data'];
@@ -79,7 +80,7 @@ class RequestTaskTest extends TestCase
     {
         $invoker = $this->createMock(InvokerInterface::class);
         $ro = $this->createMock(ResourceObject::class);
-        $request = new Request($invoker, $ro, 'get', []);
+        $request = new Request($invoker, $ro, Method::GET, []);
 
         $task = new RequestTask('test-hash', $request);
 

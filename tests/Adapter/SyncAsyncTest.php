@@ -8,6 +8,7 @@ use BEAR\Async\PendingRequests;
 use BEAR\Async\AsyncRequest;
 use BEAR\Async\Fake\FakeResourceObject;
 use BEAR\Resource\InvokerInterface;
+use BEAR\Resource\Method;
 use BEAR\Resource\Request;
 use PHPUnit\Framework\TestCase;
 
@@ -45,7 +46,7 @@ class SyncAsyncTest extends TestCase
         $invoker->method('invoke')
             ->willReturn($ro);
 
-        $request = new Request($invoker, $ro, 'get', []);
+        $request = new Request($invoker, $ro, Method::GET, []);
 
         $allRequests = new PendingRequests($this->syncAsync);
         $asyncRequest = new AsyncRequest($request, $allRequests);

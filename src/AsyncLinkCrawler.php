@@ -11,6 +11,7 @@ use BEAR\Resource\InvokerInterface;
 use BEAR\Resource\LinkCrawler;
 use BEAR\Resource\LinkCrawlerInterface;
 use BEAR\Resource\LinkType;
+use BEAR\Resource\Method;
 use BEAR\Resource\Request;
 use BEAR\Resource\ResourceObject;
 use BEAR\Resource\Uri;
@@ -124,7 +125,7 @@ final class AsyncLinkCrawler implements LinkCrawlerInterface
             $uri = uri_template($annotation->href, $body);
             $rel = $this->factory->newInstance($uri);
             $query = (new Uri($uri))->query;
-            $request = new Request($this->invoker, $rel, Request::GET, $query);
+            $request = new Request($this->invoker, $rel, Method::GET, $query);
             $hash = $request->hash();
 
             // Check cache first
@@ -211,9 +212,9 @@ final class AsyncLinkCrawler implements LinkCrawlerInterface
      *
      * @return list<Link>
      */
-    private function getLinkAnnotations(ResourceObject $ro, string $method): array
+    private function getLinkAnnotations(ResourceObject $ro, Method $method): array
     {
-        $classMethod = 'on' . ucfirst($method);
+        $classMethod = 'on' . ucfirst($method->value);
         $refMethod = new ReflectionMethod($ro, $classMethod);
         $attributes = $refMethod->getAttributes(Link::class);
 

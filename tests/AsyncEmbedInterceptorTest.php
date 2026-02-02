@@ -8,6 +8,7 @@ use BEAR\Async\Adapter\SyncAsync;
 use BEAR\Async\Fake\FakeResourceObject;
 use BEAR\Resource\AbstractRequest;
 use BEAR\Resource\InvokerInterface;
+use BEAR\Resource\Method;
 use BEAR\Resource\Request;
 use BEAR\Resource\ResourceObject;
 use PHPUnit\Framework\TestCase;
@@ -20,7 +21,7 @@ class AsyncEmbedInterceptorTest extends TestCase
     {
         $invoker = $this->createMock(InvokerInterface::class);
         $embeddedRo = new FakeResourceObject('app://self/embedded');
-        $request = new Request($invoker, $embeddedRo, 'get', []);
+        $request = new Request($invoker, $embeddedRo, Method::GET, []);
 
         $mainRo = new FakeResourceObject();
         $mainRo->body = ['embedded' => $request];
@@ -83,8 +84,8 @@ class AsyncEmbedInterceptorTest extends TestCase
         $invoker = $this->createMock(InvokerInterface::class);
         $embeddedRo1 = new FakeResourceObject('app://self/user');
         $embeddedRo2 = new FakeResourceObject('app://self/posts');
-        $request1 = new Request($invoker, $embeddedRo1, 'get', []);
-        $request2 = new Request($invoker, $embeddedRo2, 'get', []);
+        $request1 = new Request($invoker, $embeddedRo1, Method::GET, []);
+        $request2 = new Request($invoker, $embeddedRo2, Method::GET, []);
 
         $mainRo = new FakeResourceObject();
         $mainRo->body = [

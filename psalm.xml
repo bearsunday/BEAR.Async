@@ -26,15 +26,52 @@
                 <referencedClass name="Swoole\Coroutine\WaitGroup"/>
                 <referencedClass name="Swoole\Coroutine\Channel"/>
                 <referencedClass name="Swoole\Lock"/>
+                <referencedClass name="Swoole\Database\PDOPool"/>
+                <referencedClass name="Swoole\Database\PDOConfig"/>
+                <referencedClass name="Swoole\Database\PDOProxy"/>
+                <referencedClass name="Swoole\Database\RedisPool"/>
+                <referencedClass name="Swoole\Database\RedisConfig"/>
+                <referencedClass name="Redis"/>
                 <referencedClass name="BEAR\Resource\DataLoader\DataLoader"/>
             </errorLevel>
         </UndefinedClass>
+<MixedMethodCall>
+            <errorLevel type="suppress">
+                <file name="src/AsyncEmbedInterceptor.php"/>
+                <file name="src/PdoPoolProvider.php"/>
+                <file name="src/RedisPoolProvider.php"/>
+            </errorLevel>
+        </MixedMethodCall>
+        <MixedArgument>
+            <errorLevel type="suppress">
+                <file name="src/Module/PooledExtendedPdoProvider.php"/>
+            </errorLevel>
+        </MixedArgument>
         <MixedAssignment>
             <errorLevel type="suppress">
                 <directory name="src/Adapter"/>
-                <file name="src/PdoPool.php"/>
+                <file name="src/PooledPdoProvider.php"/>
+                <file name="src/PooledRedisProvider.php"/>
+                <file name="src/PdoPoolProvider.php"/>
+                <file name="src/RedisPoolProvider.php"/>
+                <file name="src/Module/PooledExtendedPdoProvider.php"/>
             </errorLevel>
         </MixedAssignment>
+        <MixedReturnStatement>
+            <errorLevel type="suppress">
+                <file name="src/PdoPoolProvider.php"/>
+                <file name="src/PooledPdoProvider.php"/>
+                <file name="src/PooledRedisProvider.php"/>
+            </errorLevel>
+        </MixedReturnStatement>
+        <UndefinedDocblockClass>
+            <errorLevel type="suppress">
+                <file name="src/PdoPoolProvider.php"/>
+                <file name="src/RedisPoolProvider.php"/>
+                <file name="src/PooledRedisProvider.php"/>
+                <file name="src/Module/PooledExtendedPdoProvider.php"/>
+            </errorLevel>
+        </UndefinedDocblockClass>
         <RedundantCast>
             <errorLevel type="suppress">
                 <file name="src/AsyncLinker.php"/>
