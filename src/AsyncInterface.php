@@ -17,9 +17,23 @@ interface AsyncInterface
     /**
      * Execute all tasks in parallel and populate their results
      *
+     * For RequestTask (crawl): executes request, sets body via setResult()
+     *
      * @param array<string, RequestTask> $tasks Tasks keyed by request hash
      */
     public function __invoke(array $tasks): void;
+
+    /**
+     * Execute all AsyncRequests in parallel and return rendered views
+     *
+     * Used by PendingRequests to execute pending embed requests.
+     * Each request is invoked and rendered to string in parallel.
+     *
+     * @param array<string, AsyncRequest> $requests Requests keyed by URI
+     *
+     * @return array<string, string> Rendered views keyed by URI
+     */
+    public function execute(array $requests): array;
 
     /**
      * Check if this async implementation is currently available
