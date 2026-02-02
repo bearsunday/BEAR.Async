@@ -212,9 +212,9 @@ final class AsyncLinkCrawler implements LinkCrawlerInterface
      *
      * @return list<Link>
      */
-    private function getLinkAnnotations(ResourceObject $ro, string $method): array
+    private function getLinkAnnotations(ResourceObject $ro, Method $method): array
     {
-        $classMethod = 'on' . ucfirst($method);
+        $classMethod = 'on' . ucfirst($method->value);
         $refMethod = new ReflectionMethod($ro, $classMethod);
         $attributes = $refMethod->getAttributes(Link::class);
 

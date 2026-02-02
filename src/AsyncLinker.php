@@ -16,6 +16,7 @@ use BEAR\Resource\Exception\UriException;
 use BEAR\Resource\FactoryInterface;
 use BEAR\Resource\InvokerInterface;
 use BEAR\Resource\LinkerInterface;
+use BEAR\Resource\Method;
 use BEAR\Resource\LinkType;
 use BEAR\Resource\Request;
 use BEAR\Resource\ResourceObject;
@@ -105,7 +106,7 @@ final class AsyncLinker implements LinkerInterface
             throw new Exception\LinkQueryException('Only array is allowed for link in ' . $current::class, 500);
         }
 
-        $classMethod = 'on' . ucfirst($request->method);
+        $classMethod = 'on' . ucfirst($request->method->value);
         /** @var list<Link> $annotations */
         $annotations = (new ReflectionMethod($current::class, $classMethod))->getAnnotations();
 
@@ -166,7 +167,7 @@ final class AsyncLinker implements LinkerInterface
 
             // Get the nested annotations for this result
             $request = $task->getRequest();
-            $classMethod = 'on' . ucfirst($request->method);
+            $classMethod = 'on' . ucfirst($request->method->value);
 
             try {
                 /** @var list<Link> $nestedAnnotations */
@@ -212,7 +213,7 @@ final class AsyncLinker implements LinkerInterface
             $uri = uri_template($annotation->href, $body);
             $rel = $this->factory->newInstance($uri);
             $query = (new Uri($uri))->query;
-            $request = new Request($this->invoker, $rel, Request::GET, $query, [$link], $this);
+            $request = new Request($this->invoker, $rel, Method::GET, $query, [$link], $this);
             $hash = $request->hash();
 
             // Check cache first
@@ -267,7 +268,7 @@ final class AsyncLinker implements LinkerInterface
             throw new Exception\LinkQueryException('Only array is allowed for link in ' . $current::class, 500);
         }
 
-        $classMethod = 'on' . ucfirst($request->method);
+        $classMethod = 'on' . ucfirst($request->method->value);
         /** @var list<Link> $annotations */
         $annotations = (new ReflectionMethod($current::class, $classMethod))->getAnnotations();
 
@@ -294,7 +295,7 @@ final class AsyncLinker implements LinkerInterface
             $uri = uri_template($annotation->href, (array) $current->body);
             $rel = $this->factory->newInstance($uri);
             $query = (new Uri($uri))->query;
-            $request = new Request($this->invoker, $rel, Request::GET, $query);
+            $request = new Request($this->invoker, $rel, Method::GET, $query);
 
             return $this->invoker->invoke($request);
         }
