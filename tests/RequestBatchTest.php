@@ -6,6 +6,7 @@ namespace BEAR\Async;
 
 use BEAR\Async\Fake\FakeResourceObject;
 use BEAR\Resource\InvokerInterface;
+use BEAR\Resource\Method;
 use BEAR\Resource\Request;
 use PHPUnit\Framework\TestCase;
 
@@ -32,7 +33,7 @@ class RequestBatchTest extends TestCase
     {
         $invoker = $this->createMock(InvokerInterface::class);
         $ro = new FakeResourceObject();
-        $request = new Request($invoker, $ro, 'get', []);
+        $request = new Request($invoker, $ro, Method::GET, []);
 
         $body = ['id' => 1];
         $this->batch->add($request, 'posts', $body);
@@ -46,7 +47,7 @@ class RequestBatchTest extends TestCase
     {
         $invoker = $this->createMock(InvokerInterface::class);
         $ro = new FakeResourceObject();
-        $request = new Request($invoker, $ro, 'get', []);
+        $request = new Request($invoker, $ro, Method::GET, []);
 
         $body1 = ['id' => 1];
         $body2 = ['id' => 2];
@@ -67,8 +68,8 @@ class RequestBatchTest extends TestCase
         $ro1 = new FakeResourceObject();
         $ro2 = new FakeResourceObject();
 
-        $request1 = new Request($invoker, $ro1, 'get', ['id' => 1]);
-        $request2 = new Request($invoker, $ro2, 'get', ['id' => 2]);
+        $request1 = new Request($invoker, $ro1, Method::GET, ['id' => 1]);
+        $request2 = new Request($invoker, $ro2, Method::GET, ['id' => 2]);
 
         $body1 = ['user' => 'a'];
         $body2 = ['user' => 'b'];

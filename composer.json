@@ -12,7 +12,7 @@
     "require": {
         "php": "^8.2",
         "aura/sql": "^5.0 || ^6.0",
-        "bear/resource": "dev-pure-singleton-resource",
+        "bear/resource": "1.x-dev as 1.31.0",
         "ray/di": "^2.18"
     },
     "require-dev": {

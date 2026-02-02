@@ -7,6 +7,7 @@ namespace BEAR\Async;
 use BEAR\Async\Adapter\SyncAsync;
 use BEAR\Async\Fake\FakeResourceObject;
 use BEAR\Resource\InvokerInterface;
+use BEAR\Resource\Method;
 use BEAR\Resource\Request;
 use PHPUnit\Framework\TestCase;
 
@@ -16,7 +17,7 @@ class AsyncRequestTest extends TestCase
     {
         $invoker = $this->createMock(InvokerInterface::class);
         $ro = new FakeResourceObject('app://self/user');
-        $request = new Request($invoker, $ro, 'get', []);
+        $request = new Request($invoker, $ro, Method::GET, []);
 
         $allRequests = new PendingRequests(new SyncAsync());
         $asyncRequest = new AsyncRequest($request, $allRequests);
@@ -32,7 +33,7 @@ class AsyncRequestTest extends TestCase
         $invoker->method('invoke')
             ->willReturn($ro);
 
-        $request = new Request($invoker, $ro, 'get', []);
+        $request = new Request($invoker, $ro, Method::GET, []);
 
         $pendingRequests = new PendingRequests(new SyncAsync());
         $asyncRequest = new AsyncRequest($request, $pendingRequests);
@@ -48,7 +49,7 @@ class AsyncRequestTest extends TestCase
         $invoker = $this->createMock(InvokerInterface::class);
         $ro = new FakeResourceObject('app://self/user');
         $query = ['id' => '123', 'name' => 'test'];
-        $request = new Request($invoker, $ro, 'get', $query);
+        $request = new Request($invoker, $ro, Method::GET, $query);
 
         $pendingRequests = new PendingRequests(new SyncAsync());
         $asyncRequest = new AsyncRequest($request, $pendingRequests);
@@ -64,7 +65,7 @@ class AsyncRequestTest extends TestCase
         $invoker->method('invoke')
             ->willReturn($ro);
 
-        $request = new Request($invoker, $ro, 'get', []);
+        $request = new Request($invoker, $ro, Method::GET, []);
 
         $allRequests = new PendingRequests(new SyncAsync());
         $asyncRequest = new AsyncRequest($request, $allRequests);

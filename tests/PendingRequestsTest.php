@@ -7,6 +7,7 @@ namespace BEAR\Async;
 use BEAR\Async\Adapter\SyncAsync;
 use BEAR\Async\Fake\FakeResourceObject;
 use BEAR\Resource\InvokerInterface;
+use BEAR\Resource\Method;
 use BEAR\Resource\Request;
 use BEAR\Resource\ResourceObject;
 use PHPUnit\Framework\TestCase;
@@ -22,7 +23,7 @@ class PendingRequestsTest extends TestCase
         $invoker->method('invoke')
             ->willReturn($ro);
 
-        $request = new Request($invoker, $ro, 'get', []);
+        $request = new Request($invoker, $ro, Method::GET, []);
 
         $allRequests = new PendingRequests(new SyncAsync());
         $asyncRequest = new AsyncRequest($request, $allRequests);
@@ -41,8 +42,8 @@ class PendingRequestsTest extends TestCase
         $invoker->method('invoke')
             ->willReturn($ro);
 
-        $request1 = new Request($invoker, $ro, 'get', []);
-        $request2 = new Request($invoker, $ro, 'get', []);
+        $request1 = new Request($invoker, $ro, Method::GET, []);
+        $request2 = new Request($invoker, $ro, Method::GET, []);
 
         $allRequests = new PendingRequests(new SyncAsync());
 
@@ -65,7 +66,7 @@ class PendingRequestsTest extends TestCase
         $invoker->method('invoke')
             ->willReturn($ro);
 
-        $request = new Request($invoker, $ro, 'get', []);
+        $request = new Request($invoker, $ro, Method::GET, []);
 
         $pendingRequests = new PendingRequests(new SyncAsync());
         $asyncRequest = new AsyncRequest($request, $pendingRequests);
@@ -94,7 +95,7 @@ class PendingRequestsTest extends TestCase
             ->method('invoke')
             ->willReturn($ro);
 
-        $request = new Request($invoker, $ro, 'get', []);
+        $request = new Request($invoker, $ro, Method::GET, []);
 
         $allRequests = new PendingRequests(new SyncAsync());
         $asyncRequest = new AsyncRequest($request, $allRequests);
@@ -117,8 +118,8 @@ class PendingRequestsTest extends TestCase
             ->method('invoke')
             ->willReturn($ro);
 
-        $request1 = new Request($invoker, $ro, 'get', ['id' => '1']);
-        $request2 = new Request($invoker, $ro, 'get', ['id' => '2']);
+        $request1 = new Request($invoker, $ro, Method::GET, ['id' => '1']);
+        $request2 = new Request($invoker, $ro, Method::GET, ['id' => '2']);
 
         $pendingRequests = new PendingRequests(new SyncAsync());
         $asyncRequest1 = new AsyncRequest($request1, $pendingRequests);
