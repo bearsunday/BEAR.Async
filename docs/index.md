@@ -11,7 +11,7 @@ Async/parallel resource execution library for BEAR.Sunday.
 
 BEAR.Async enables transparent parallel execution of BEAR.Sunday's `#[Embed]` resources.
 
-Traditional async programming requires rewriting code with special syntax like async/await, Promise, or yield. Developers must explicitly manage concurrency and learn new patterns. BEAR.Async takes a different approach: your existing `#[Embed]` attributes work as-is. Just install a module, and embedded resources automatically execute in parallel. No syntax changes, no rewriting, no learning curve.
+Traditional async programming requires rewriting code with special syntax like async/await, Promise, or yield. Developers must explicitly manage concurrency and learn new patterns. BEAR.Async takes a different approach: BEAR.Async preserves your resource code. You choose an async execution mode at the application boundary — your existing `#[Embed]` attributes work as-is and embedded resources automatically execute in parallel.
 
 ```php
 #[Embed(rel: 'profile', src: 'app://self/user/profile?id={user_id}')]
@@ -20,15 +20,19 @@ Traditional async programming requires rewriting code with special syntax like a
 public function onGet(int $user_id): static
 ```
 
-With BEAR.Async module installed, these 3 embeds execute **in parallel** instead of sequentially. If each resource takes 50ms to fetch, synchronous execution takes 150ms total, while parallel execution completes in approximately 50ms—a 3x speedup with zero code changes.
+With an async execution mode selected, these 3 embeds execute **in parallel** instead of sequentially. If each resource takes 50ms to fetch, synchronous execution takes 150ms total, while parallel execution completes in approximately 50ms—a 3x speedup with zero code changes.
 
-## Modules
+## Execution Modes
 
 ### Parallel execution (ext-parallel)
 
-For PHP-FPM/Apache environments using an ext-parallel thread pool. `AppModule`
-stays ignorant of execution form — add a dedicated `bin/async.php` entrypoint
-that loads the library bootstrap:
+For PHP-FPM/Apache environments using an ext-parallel thread pool. Add a
+`bin/async.php` entrypoint that hands off to the library bootstrap, which
+overlays the ext-parallel runtime on the normal AppModule:
+
+```text
+bin/async.php → vendor/bear/async/bootstrap.php → AppModule + runtime overlay
+```
 
 ```php
 <?php // bin/async.php
@@ -49,12 +53,17 @@ exit((require $bootstrap)(
 ));
 ```
 
-The library bootstrap overlays the ext-parallel runtime on your `AppModule`.
-Applications should not install the internal runtime modules directly.
+Do not install the parallel runtime in `AppModule` directly — the bootstrap
+is the only supported install path. The same `AppModule` works under
+`bin/app.php` (sync) and `bin/async.php` (parallel) unchanged.
 
-### AsyncSwooleModule
+### Swoole execution (ext-swoole)
 
 For Swoole HTTP Server environments using coroutines.
+
+ext-parallel uses worker runtimes, so it is selected by a separate entrypoint.
+ext-swoole runs inside one server process, so it is installed as an application
+module.
 
 ```php
 $this->install(new AsyncSwooleModule());
@@ -72,4 +81,10 @@ $this->install(new PdoPoolEnvModule(
 
 ## Requirements
 
-- ext-parallel or ext-swoole
+PHP 8.2+ for the library itself. Each execution mode adds its own runtime
+requirement:
+
+| Mode | Requires | Application change |
+|---|---|---|
+| ext-parallel | ZTS PHP + ext-parallel | add `bin/async.php` |
+| ext-swoole | ext-swoole | install `AsyncSwooleModule`, use `bin/swoole.php` |

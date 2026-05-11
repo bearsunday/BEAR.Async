@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - **BC break:** `AsyncParallelModule` has been replaced by internal `ParallelModule`; ext-parallel apps should use `bin/async.php` and the library `bootstrap.php` entrypoint instead of installing a module directly.
 - ext-parallel execution is now triggered by an explicit `bin/async.php` entrypoint instead of a `parallel-` context prefix. AppModule no longer needs to know it is running in parallel.
 - `ParallelAsync` no longer generates a bootstrap PHP file at runtime. Workers load `vendor/bear/async/worker-bootstrap.php` (a physical file) and build their `ResourceInterface` lazily via `WorkerResourceCache::getOrInit()`.
+- README/index docs realigned around an "Execution Modes" axis: parallel is chosen via `bin/async.php`, swoole via `AsyncSwooleModule` in `AppModule`. The asymmetry (entrypoint vs. module) is now documented as intentional — worker runtimes vs. single-process coroutines.
 
 ### Added
 
