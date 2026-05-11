@@ -227,12 +227,17 @@ Server cost reduction scenarios:
 
 ### Pool Size Selection
 
+Pool size is passed as the optional 6th argument to the library bootstrap
+from `bin/async.php`:
+
 ```php
-$this->install(new AsyncParallelModule(
-    namespace: 'MyVendor\MyApp',
-    context: 'prod-app',
-    appDir: dirname(__DIR__),
-    poolSize: null,  // Auto-detect CPU cores (recommended)
+exit((require $bootstrap)(
+    $context,
+    'MyVendor\MyApp',
+    dirname(__DIR__),
+    $GLOBALS,
+    $_SERVER,
+    null,  // Auto-detect CPU cores (recommended)
 ));
 ```
 

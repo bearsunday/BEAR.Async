@@ -92,7 +92,7 @@ Actual speedup varies based on:
 
 ### Module Selection Guide
 
-#### Use AsyncParallelModule when:
+#### Use the `bin/async.php` entrypoint (ext-parallel) when:
 - Running under PHP-FPM or Apache
 - Each request requires isolated memory
 - No special PDO connection management needed

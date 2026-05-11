@@ -79,7 +79,7 @@
         "app": "php bin/app.php",
         "page": "php bin/page.php",
         "xprofile": "./vendor/bin/xprofile -- php bin/app.php get 'app://self/dashboard?user_id=1'",
-        "xprofile-parallel": "APP_CONTEXT=cli-parallel-hal-api-app ./vendor/bin/xprofile -- php bin/app.php get 'app://self/dashboard?user_id=1'",
+        "xprofile-parallel": "./vendor/bin/xprofile -- php bin/async.php get 'app://self/dashboard?user_id=1'",
         "xprofile-swoole": "APP_CONTEXT=cli-swoole-hal-api-app ./vendor/bin/xprofile -- php bin/app.php get 'app://self/dashboard?user_id=1'"
     },
     "scripts-descriptions": {

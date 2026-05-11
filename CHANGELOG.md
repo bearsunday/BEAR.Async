@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Changed
+
+- **BC break:** `AsyncParallelModule` no longer takes `namespace` / `context` / `appDir`. The constructor signature is now `(int|null $poolSize = null)`. The module is `@internal` — install it via the new orchestrator rather than directly.
+- ext-parallel execution is now triggered by an explicit `bin/async.php` entrypoint instead of a `parallel-` context prefix. AppModule no longer needs to know it is running in parallel.
+- `ParallelAsync` no longer generates a bootstrap PHP file at runtime. Workers load `vendor/bear/async/worker-bootstrap.php` (a physical file) and build their `ResourceInterface` lazily via `WorkerResourceCache::getOrInit()`.
+
+### Added
+
+- `bootstrap.php` (library top-level) returning a closure that builds an override injector with `AsyncParallelBootstrapModule` and runs the standard request lifecycle. Use from `bin/async.php`.
+- `worker-bootstrap.php` (library top-level) loaded by each `parallel\Runtime`.
+- `AsyncParallelBootstrapModule` — context-aware orchestrator (`@internal`). Binds the `#[Context]` qualifier and installs `AsyncParallelModule`.
+- `Worker\WorkerResourceCache` — per-Runtime resource cache with worker marker and `name|context|appDir` key guard.
+- `Worker\PayloadValidator::assertCopyable()` — validates args/return crossing the thread boundary are scalar / null / nested arrays.
+- `Exception\RecursiveWorkerSpawnException`, `Exception\NonCopyablePayloadException`, `Exception\InconsistentWorkerContextException`.
+- `composer.json` `require`: `bear/package ^1.14`, `bear/app-meta ^1.6`.
+
+### Removed
+
+- `Qualifier\AppNamespace`, `Qualifier\AppDir` — replaced by injecting `AbstractAppMeta` directly into `ParallelAsync`.
+- `Exception\BootstrapFileException` — no bootstrap file is generated anymore.
+
 ## 0.1.0 - 2026-02-03
 
 Initial release of BEAR.Async - transparent parallel execution for BEAR.Sunday.
@@ -43,5 +66,5 @@ Initial release of BEAR.Async - transparent parallel execution for BEAR.Sunday.
 #### Other
 
 - Domain-specific exceptions (`PoolTimeoutException`, `NotInCoroutineException`, etc.)
-- Qualifier attributes for DI (`AppNamespace`, `Context`, `AppDir`, `PoolSize`)
+- Qualifier attributes for DI (`Context`, `PoolSize`)
 - Demo application with Docker support and benchmark scripts

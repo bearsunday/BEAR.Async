@@ -66,7 +66,10 @@ final class AsyncLinkCrawler implements LinkCrawlerInterface
         $this->dataLoader?->load($annotations, $link, $bodyList);
 
         // Process level by level with async execution
-        /** @psalm-suppress MixedArgumentTypeCoercion */
+        /**
+         * @psalm-suppress MixedArgumentTypeCoercion
+         * @phpstan-ignore argument.type
+         */
         $this->processLevel($annotations, $link, $bodyList);
     }
 

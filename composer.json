@@ -12,6 +12,8 @@
     "require": {
         "php": "^8.2",
         "aura/sql": "^5.0 || ^6.0",
+        "bear/app-meta": "^1.6",
+        "bear/package": "^1.14",
         "bear/resource": "^1.31",
         "ray/di": "^2.18"
     },
