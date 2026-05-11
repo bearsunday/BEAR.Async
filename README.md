@@ -56,11 +56,9 @@ exit((require $bootstrap)(
 ));
 ```
 
-The library bootstrap installs `AsyncParallelBootstrapModule` over your
-`AppModule`, which in turn installs the mechanism module
-`AsyncParallelModule`. You should **not** install `AsyncParallelModule`
-directly inside `AppModule` — `AppModule` should not know it is running
-under ext-parallel.
+The library bootstrap overlays the ext-parallel runtime on your `AppModule`.
+Applications should not install the internal runtime modules directly —
+`AppModule` should not know it is running under ext-parallel.
 
 To override the worker pool size (default = CPU cores), pass it as the
 optional 6th argument:
@@ -121,9 +119,9 @@ class AppModule extends AbstractModule
 
 ## Which module should I use?
 
-| Use Case | Entrypoint | Bootstrap module |
+| Use Case | Entrypoint | Runtime setup |
 |---|---|---|
-| PHP-FPM / Apache with embedded resources | `bin/async.php` | `AsyncParallelBootstrapModule` (installed by library bootstrap) |
+| PHP-FPM / Apache with embedded resources | `bin/async.php` | library bootstrap overlay |
 | Swoole HTTP Server | `bin/swoole.php` | `AsyncSwooleModule` (in AppModule) |
 
 ### Comparison

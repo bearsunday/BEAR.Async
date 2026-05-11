@@ -28,21 +28,21 @@ use function str_starts_with;
 use function trim;
 
 /**
- * AsyncParallelModule — ext-parallel mechanism bindings.
+ * ParallelModule — ext-parallel mechanism bindings.
  *
  * Context-unaware: binds AsyncInterface to ParallelAsync, LinkCrawler to
  * AsyncLinkCrawler, the pool size qualifier, and installs AsyncEmbedModule.
  * The application context that worker Runtimes will execute under is supplied
- * separately by `AsyncParallelBootstrapModule`.
+ * separately by `ParallelRuntimeModule`.
  *
  * @internal
  *   Do not install directly in AppModule. Install via the library-provided
  *   bootstrap (`vendor/bear/async/bootstrap.php`) from `bin/async.php`, which
- *   installs `AsyncParallelBootstrapModule` and overrides AppModule. If this
+ *   installs `ParallelRuntimeModule` and overrides AppModule. If this
  *   module ends up loaded inside a worker Runtime, configure() throws
  *   `RecursiveWorkerSpawnException` to prevent recursive thread-pool spawn.
  */
-final class AsyncParallelModule extends AbstractModule
+final class ParallelModule extends AbstractModule
 {
     /** @var positive-int */
     private readonly int $poolSize;
@@ -68,7 +68,7 @@ final class AsyncParallelModule extends AbstractModule
     {
         if (WorkerResourceCache::isWorker()) {
             throw new RecursiveWorkerSpawnException(
-                'AsyncParallelModule was installed inside a worker Runtime. '
+                'ParallelModule was installed inside a worker Runtime. '
                 . 'This would spawn a nested thread pool. Install via bin/async.php '
                 . '+ vendor/bear/async/bootstrap.php so workers run a plain AppModule instead.',
             );
