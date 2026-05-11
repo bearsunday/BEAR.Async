@@ -180,7 +180,7 @@ final class ParallelAsync implements AsyncInterface
      */
     private function extractUriAndQueryFromAsyncRequest(AsyncRequest $asyncRequest): array
     {
-        return [$asyncRequest->uri, $asyncRequest->query];
+        return [$asyncRequest->toUri(), $asyncRequest->query];
     }
 
     #[Override]
