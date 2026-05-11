@@ -11,6 +11,7 @@ use function is_array;
 use function is_int;
 use function is_scalar;
 use function sprintf;
+use function str_replace;
 
 /**
  * Validates that a value is safely copyable across ext-parallel thread boundaries.
@@ -52,6 +53,10 @@ final class PayloadValidator
 
     private static function formatKey(int|string $key): string
     {
-        return is_int($key) ? (string) $key : "'" . $key . "'";
+        if (is_int($key)) {
+            return (string) $key;
+        }
+
+        return "'" . str_replace("'", "\\'", $key) . "'";
     }
 }

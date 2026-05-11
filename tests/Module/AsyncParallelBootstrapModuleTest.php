@@ -6,11 +6,11 @@ namespace BEAR\Async\Module;
 
 use BEAR\Async\Qualifier\Context;
 use BEAR\Async\Worker\WorkerResourceCache;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
 use Ray\Di\Injector;
 
-#[RequiresPhpExtension('parallel')]
 class AsyncParallelBootstrapModuleTest extends TestCase
 {
     protected function tearDown(): void
@@ -18,6 +18,7 @@ class AsyncParallelBootstrapModuleTest extends TestCase
         WorkerResourceCache::reset();
     }
 
+    #[RequiresPhpExtension('parallel')]
     public function testContextIsBound(): void
     {
         $module = new AsyncParallelBootstrapModule('prod-hal-app', 4);
@@ -28,6 +29,7 @@ class AsyncParallelBootstrapModuleTest extends TestCase
         $this->assertSame('prod-hal-app', $context);
     }
 
+    #[RequiresPhpExtension('parallel')]
     public function testInstallsAsyncParallelModule(): void
     {
         $module = new AsyncParallelBootstrapModule('prod-hal-app', 2);
@@ -37,5 +39,19 @@ class AsyncParallelBootstrapModuleTest extends TestCase
         $poolSize = $injector->getInstance('', \BEAR\Async\Qualifier\PoolSize::class);
 
         $this->assertSame(2, $poolSize);
+    }
+
+    public function testEmptyContextRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new AsyncParallelBootstrapModule('', 4);
+    }
+
+    public function testNonPositivePoolSizeRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new AsyncParallelBootstrapModule('prod-hal-app', 0);
     }
 }

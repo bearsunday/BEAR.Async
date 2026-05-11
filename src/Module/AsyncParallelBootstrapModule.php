@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace BEAR\Async\Module;
 
 use BEAR\Async\Qualifier\Context;
+use InvalidArgumentException;
 use Override;
 use Ray\Di\AbstractModule;
+
+use function sprintf;
 
 /**
  * Context-aware orchestrator for ext-parallel async execution.
@@ -26,13 +29,23 @@ use Ray\Di\AbstractModule;
 final class AsyncParallelBootstrapModule extends AbstractModule
 {
     /**
-     * @param non-empty-string  $context  Application context propagated to worker Runtimes (e.g., 'prod-hal-app')
-     * @param positive-int|null $poolSize Worker pool size (null = autodetect CPU cores)
+     * @param string   $context  Application context propagated to worker Runtimes (e.g., 'prod-hal-app'); must be non-empty.
+     * @param int|null $poolSize Worker pool size (null = autodetect CPU cores); must be positive when given.
+     *
+     * @throws InvalidArgumentException when $context is empty or $poolSize is < 1.
      */
     public function __construct(
         private readonly string $context,
         private readonly int|null $poolSize = null,
     ) {
+        if ($this->context === '') {
+            throw new InvalidArgumentException('Context must not be empty.');
+        }
+
+        if ($this->poolSize !== null && $this->poolSize < 1) {
+            throw new InvalidArgumentException(sprintf('poolSize must be a positive integer, %d given.', $this->poolSize));
+        }
+
         parent::__construct();
     }
 

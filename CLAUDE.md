@@ -51,7 +51,7 @@ AsyncLinker ──uses──→ AsyncInterface
 
 ### ext-parallel entrypoint flow
 
-```
+```text
 bin/async.php                              (user)
   └→ require vendor/bear/async/bootstrap.php
        └→ Injector::getOverrideInstance(name, context, appDir,

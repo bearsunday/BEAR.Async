@@ -13,14 +13,17 @@ use BEAR\Async\Qualifier\PoolSize;
 use BEAR\Async\Worker\WorkerResourceCache;
 use BEAR\Resource\LinkCrawler;
 use BEAR\Resource\LinkCrawlerInterface;
+use InvalidArgumentException;
 use Override;
 use Ray\Di\AbstractModule;
 use Ray\Di\Scope;
 
 use function exec;
 use function extension_loaded;
+use function function_exists;
 use function is_numeric;
 use function php_uname;
+use function sprintf;
 use function str_starts_with;
 use function trim;
 
@@ -44,9 +47,17 @@ final class AsyncParallelModule extends AbstractModule
     /** @var positive-int */
     private readonly int $poolSize;
 
-    /** @param positive-int|null $poolSize Worker pool size (null = autodetect CPU cores) */
+    /**
+     * @param int|null $poolSize Worker pool size (null = autodetect CPU cores); must be positive when given.
+     *
+     * @throws InvalidArgumentException when $poolSize is < 1.
+     */
     public function __construct(int|null $poolSize = null)
     {
+        if ($poolSize !== null && $poolSize < 1) {
+            throw new InvalidArgumentException(sprintf('poolSize must be a positive integer, %d given.', $poolSize));
+        }
+
         $this->poolSize = $poolSize ?? self::detectCpuCores();
 
         parent::__construct();
@@ -80,6 +91,10 @@ final class AsyncParallelModule extends AbstractModule
     /** @return positive-int */
     private static function detectCpuCores(): int
     {
+        if (! function_exists('exec')) {
+            return 4;
+        }
+
         $os = php_uname('s');
         $command = str_starts_with($os, 'Darwin') ? 'sysctl -n hw.ncpu' : 'nproc';
         $result = exec($command);
