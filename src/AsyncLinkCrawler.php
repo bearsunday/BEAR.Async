@@ -190,7 +190,10 @@ final class AsyncLinkCrawler implements LinkCrawlerInterface
             // Update the result with nested data
             if ($this->isList($result)) {
                 $task->setResult($resultList);
-            } elseif (isset($resultList[0])) {
+                continue;
+            }
+
+            if (isset($resultList[0])) {
                 $task->setResult($resultList[0]);
             }
         }

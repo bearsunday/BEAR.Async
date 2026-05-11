@@ -84,11 +84,12 @@ final class AsyncLinker implements LinkerInterface
         foreach ($request->links as $link) {
             if ($link->type === LinkType::CRAWL_LINK) {
                 $this->processCrawlAsync($link, $current, $request);
-            } else {
-                /** @var Body $nextBody */
-                $nextBody = $this->annotationLink($link, $current, $request)->body;
-                $current = $this->nextLink($link, $current, $nextBody);
+                continue;
             }
+
+            /** @var Body $nextBody */
+            $nextBody = $this->annotationLink($link, $current, $request)->body;
+            $current = $this->nextLink($link, $current, $nextBody);
         }
 
         return $current;
@@ -178,7 +179,10 @@ final class AsyncLinker implements LinkerInterface
                 // Update the result with nested data
                 if ($this->isList($result)) {
                     $task->setResult($resultList);
-                } elseif (isset($resultList[0])) {
+                    continue;
+                }
+
+                if (isset($resultList[0])) {
                     $task->setResult($resultList[0]);
                 }
             } catch (ReflectionException) {
