@@ -21,7 +21,7 @@ use Ray\Di\Scope;
  * AbstractRequest objects with AsyncRequest, which triggers batch parallel
  * execution when rendered via PendingRequests (そうめん流し方式).
  *
- * NOTE: This module is automatically installed by AsyncSwooleModule and AsyncParallelModule.
+ * NOTE: This module is automatically installed by AsyncSwooleModule and ParallelModule.
  * You don't need to install it separately when using those modules.
  *
  * IMPORTANT: This module requires AsyncInterface to be bound.

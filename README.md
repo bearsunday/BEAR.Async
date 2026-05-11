@@ -4,7 +4,7 @@ Async/parallel resource execution library for BEAR.Sunday
 
 ## Why BEAR.Async?
 
-Unlike traditional async programming (async/await, Promise, yield), BEAR.Async requires **no code changes**. Your existing `#[Embed]` attributes automatically execute in parallel - just install a module.
+BEAR.Async preserves your resource code. You choose an async execution mode at the application boundary — no async/await, no Promise, no yield, no rewrites of existing `#[Embed]` graphs.
 
 ```php
 #[Embed(rel: 'profile', src: 'app://self/user/profile?id={user_id}')]
@@ -21,16 +21,19 @@ These 3 embeds execute **in parallel** instead of sequentially.
 composer require bear/async
 ```
 
-## Usage
+## Execution Modes
 
 ### Parallel execution (ext-parallel)
 
 Recommended for typical PHP-FPM / Apache web applications with embedded
 resources.
 
-`AppModule` stays ignorant of execution form. Add a dedicated entrypoint
-`bin/async.php` next to `bin/app.php` that picks the parallel runtime
-profile, the same way `bin/swoole.php` does for Swoole:
+Add `bin/async.php` next to `bin/app.php`. It hands off to the library
+bootstrap, which overlays the ext-parallel runtime on the normal AppModule:
+
+```text
+bin/async.php → vendor/bear/async/bootstrap.php → AppModule + runtime overlay
+```
 
 ```php
 <?php // bin/async.php
@@ -56,11 +59,9 @@ exit((require $bootstrap)(
 ));
 ```
 
-The library bootstrap installs `AsyncParallelBootstrapModule` over your
-`AppModule`, which in turn installs the mechanism module
-`AsyncParallelModule`. You should **not** install `AsyncParallelModule`
-directly inside `AppModule` — `AppModule` should not know it is running
-under ext-parallel.
+Do not install the parallel runtime in `AppModule` directly. The bootstrap
+is the only supported install path so the same `AppModule` works under
+`bin/app.php` (sync) and `bin/async.php` (parallel) unchanged.
 
 To override the worker pool size (default = CPU cores), pass it as the
 optional 6th argument:
@@ -95,9 +96,14 @@ For long-running Swoole HTTP Server use `AsyncSwooleModule` instead — its
 coroutines share the same process memory and do not have the cross-thread
 copyability constraint.
 
-### Swoole Module (ext-swoole)
+### Swoole execution (ext-swoole)
 
-For applications already running on Swoole HTTP Server with high concurrency requirements.
+For applications already running on Swoole HTTP Server with high concurrency
+requirements.
+
+ext-parallel uses worker runtimes, so it is selected by a separate entrypoint.
+ext-swoole runs inside one server process, so it is installed as an application
+module.
 
 ```php
 use BEAR\Async\Module\AsyncSwooleModule;
@@ -119,11 +125,11 @@ class AppModule extends AbstractModule
 }
 ```
 
-## Which module should I use?
+## Which execution mode should I use?
 
-| Use Case | Entrypoint | Bootstrap module |
+| Use Case | Entrypoint | Runtime setup |
 |---|---|---|
-| PHP-FPM / Apache with embedded resources | `bin/async.php` | `AsyncParallelBootstrapModule` (installed by library bootstrap) |
+| PHP-FPM / Apache with embedded resources | `bin/async.php` | library bootstrap overlay |
 | Swoole HTTP Server | `bin/swoole.php` | `AsyncSwooleModule` (in AppModule) |
 
 ### Comparison
@@ -156,8 +162,13 @@ Level 3: Comments for each post → all comment requests execute in parallel
 
 ## Requirements
 
-- PHP 8.2+
-- ext-parallel (ZTS PHP required) or ext-swoole for async execution
+PHP 8.2+ for the library itself. Each execution mode adds its own runtime
+requirement:
+
+| Mode | Requires | Application change |
+|---|---|---|
+| ext-parallel | ZTS PHP + ext-parallel | add `bin/async.php` |
+| ext-swoole | ext-swoole | install `AsyncSwooleModule`, use `bin/swoole.php` |
 
 ## Mysqli Batch Execution
 

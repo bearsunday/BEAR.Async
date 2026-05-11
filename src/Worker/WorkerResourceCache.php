@@ -16,7 +16,7 @@ use function sprintf;
  *
  * Each ext-parallel `Runtime` has its own zend memory, so class-level static
  * state is naturally Runtime-local. We use this to:
- *   1. Mark the Runtime as a worker (so AsyncParallelModule fails fast if
+ *   1. Mark the Runtime as a worker (so ParallelModule fails fast if
  *      re-installed inside a worker — preventing recursive thread pool spawns)
  *   2. Lazily build a single ResourceInterface per Runtime and reuse it
  *      across tasks (avoids re-running `Injector::getInstance` per task)

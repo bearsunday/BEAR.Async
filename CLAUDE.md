@@ -39,7 +39,7 @@ AsyncLinker ──uses──→ AsyncInterface
 - **AsyncLinker**: Replaces standard Linker, executes crawl requests level-by-level in parallel
 - **AsyncInterface**: Adapter interface for different async runtimes
 - **Adapters**: `ParallelAsync` (thread pool), `SwooleAsync` (coroutines), `SyncAsync` (sequential)
-- **Modules**: `AsyncParallelBootstrapModule` (user-facing, installed by `bootstrap.php`), `AsyncParallelModule` (`@internal` mechanism), `AsyncSwooleModule`
+- **Modules**: `ParallelRuntimeModule` (`@internal` bootstrap override), `ParallelModule` (`@internal` mechanism), `AsyncSwooleModule`
 - **PdoPool/PdoPoolModule**: Connection pool for Swoole (coroutines share memory, need pooled PDO)
 
 ### How Parallel Execution Works
@@ -55,12 +55,12 @@ AsyncLinker ──uses──→ AsyncInterface
 bin/async.php                              (user)
   └→ require vendor/bear/async/bootstrap.php
        └→ Injector::getOverrideInstance(name, context, appDir,
-                AsyncParallelBootstrapModule(context, poolSize))
+                ParallelRuntimeModule(context, poolSize))
             └→ AppModule + override
-                  └→ AsyncParallelBootstrapModule.configure()
+                  └→ ParallelRuntimeModule.configure()
                        ├→ bind(Context) to context
-                       └→ install(AsyncParallelModule(poolSize))
-                            └→ AsyncParallelModule.configure()
+                       └→ install(ParallelModule(poolSize))
+                            └→ ParallelModule.configure()
                                  ├→ guard: throws RecursiveWorkerSpawnException
                                  │         if WorkerResourceCache::isWorker()
                                  ├→ bind(PoolSize), bind(AsyncInterface)

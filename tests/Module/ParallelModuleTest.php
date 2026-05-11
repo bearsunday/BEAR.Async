@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
 use Ray\Di\Injector;
 
 #[RequiresPhpExtension('parallel')]
-class AsyncParallelModuleTest extends TestCase
+class ParallelModuleTest extends TestCase
 {
     protected function tearDown(): void
     {
@@ -20,16 +20,16 @@ class AsyncParallelModuleTest extends TestCase
 
     public function testModuleCanBeInstantiatedWithDefaults(): void
     {
-        $module = new AsyncParallelModule();
+        $module = new ParallelModule();
 
-        $this->assertInstanceOf(AsyncParallelModule::class, $module);
+        $this->assertInstanceOf(ParallelModule::class, $module);
     }
 
     public function testModuleCanBeInstantiatedWithExplicitPoolSize(): void
     {
-        $module = new AsyncParallelModule(poolSize: 4);
+        $module = new ParallelModule(poolSize: 4);
 
-        $this->assertInstanceOf(AsyncParallelModule::class, $module);
+        $this->assertInstanceOf(ParallelModule::class, $module);
     }
 
     public function testConfigureFailsFastInsideWorker(): void
@@ -37,6 +37,6 @@ class AsyncParallelModuleTest extends TestCase
         WorkerResourceCache::markAsWorker();
 
         $this->expectException(RecursiveWorkerSpawnException::class);
-        new Injector(new AsyncParallelModule(poolSize: 2));
+        new Injector(new ParallelModule(poolSize: 2));
     }
 }

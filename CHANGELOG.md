@@ -2,19 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.2.0 - 2026-05-11
 
 ### Changed
 
-- **BC break:** `AsyncParallelModule` no longer takes `namespace` / `context` / `appDir`. The constructor signature is now `(int|null $poolSize = null)`. The module is `@internal` — install it via the new orchestrator rather than directly.
+- **BC break:** `AsyncParallelModule` has been replaced by internal `ParallelModule`; ext-parallel apps should use `bin/async.php` and the library `bootstrap.php` entrypoint instead of installing a module directly.
 - ext-parallel execution is now triggered by an explicit `bin/async.php` entrypoint instead of a `parallel-` context prefix. AppModule no longer needs to know it is running in parallel.
 - `ParallelAsync` no longer generates a bootstrap PHP file at runtime. Workers load `vendor/bear/async/worker-bootstrap.php` (a physical file) and build their `ResourceInterface` lazily via `WorkerResourceCache::getOrInit()`.
+- README/index docs realigned around an "Execution Modes" axis: parallel is chosen via `bin/async.php`, swoole via `AsyncSwooleModule` in `AppModule`. The asymmetry (entrypoint vs. module) is now documented as intentional — worker runtimes vs. single-process coroutines.
 
 ### Added
 
-- `bootstrap.php` (library top-level) returning a closure that builds an override injector with `AsyncParallelBootstrapModule` and runs the standard request lifecycle. Use from `bin/async.php`.
+- `bootstrap.php` (library top-level) returning a closure that builds an override injector with internal `ParallelRuntimeModule` and runs the standard request lifecycle. Use from `bin/async.php`.
 - `worker-bootstrap.php` (library top-level) loaded by each `parallel\Runtime`.
-- `AsyncParallelBootstrapModule` — context-aware orchestrator (`@internal`). Binds the `#[Context]` qualifier and installs `AsyncParallelModule`.
+- `ParallelRuntimeModule` — context-aware runtime override (`@internal`). Binds the `#[Context]` qualifier and installs `ParallelModule`.
 - `Worker\WorkerResourceCache` — per-Runtime resource cache with worker marker and `name|context|appDir` key guard.
 - `Worker\PayloadValidator::assertCopyable()` — validates args/return crossing the thread boundary are scalar / null / nested arrays.
 - `Exception\RecursiveWorkerSpawnException`, `Exception\NonCopyablePayloadException`, `Exception\InconsistentWorkerContextException`.
