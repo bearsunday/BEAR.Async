@@ -39,7 +39,7 @@ AsyncLinker ──uses──→ AsyncInterface
 - **AsyncLinker**: Replaces standard Linker, executes crawl requests level-by-level in parallel
 - **AsyncInterface**: Adapter interface for different async runtimes
 - **Adapters**: `ParallelAsync` (thread pool), `SwooleAsync` (coroutines), `SyncAsync` (sequential)
-- **Modules**: `AsyncParallelModule`, `AsyncSwooleModule` - DI configuration for each adapter
+- **Modules**: `AsyncParallelBootstrapModule` (user-facing, installed by `bootstrap.php`), `AsyncParallelModule` (`@internal` mechanism), `AsyncSwooleModule`
 - **PdoPool/PdoPoolModule**: Connection pool for Swoole (coroutines share memory, need pooled PDO)
 
 ### How Parallel Execution Works
@@ -49,10 +49,33 @@ AsyncLinker ──uses──→ AsyncInterface
 3. `AsyncInterface` executes all tasks in parallel
 4. Results are cached and distributed to all requesters
 
-### Module Selection
+### ext-parallel entrypoint flow
 
-- **AsyncParallelModule**: PHP-FPM/Apache, each thread has isolated PDO (no pool needed)
-- **AsyncSwooleModule**: Swoole HTTP Server, requires `PdoPoolModule` for PDO
+```text
+bin/async.php                              (user)
+  └→ require vendor/bear/async/bootstrap.php
+       └→ Injector::getOverrideInstance(name, context, appDir,
+                AsyncParallelBootstrapModule(context, poolSize))
+            └→ AppModule + override
+                  └→ AsyncParallelBootstrapModule.configure()
+                       ├→ bind(Context) to context
+                       └→ install(AsyncParallelModule(poolSize))
+                            └→ AsyncParallelModule.configure()
+                                 ├→ guard: throws RecursiveWorkerSpawnException
+                                 │         if WorkerResourceCache::isWorker()
+                                 ├→ bind(PoolSize), bind(AsyncInterface)
+                                 └→ install(AsyncEmbedModule)
+```
+
+Inside each `parallel\Runtime`, `worker-bootstrap.php` loads the autoloader;
+`WorkerResourceCache::getOrInit($name, $context, $appDir)` lazily builds the
+worker's own `ResourceInterface` via plain `BEAR\Package\Injector::getInstance`
+(no override → no parallel bindings → no recursion).
+
+### Module selection
+
+- **ext-parallel (PHP-FPM / Apache)**: add `bin/async.php`; AppModule is unchanged
+- **ext-swoole**: install `AsyncSwooleModule` in AppModule and run `bin/swoole.php`; requires `PdoPoolModule` for PDO
 
 ## Code Quality
 
@@ -62,5 +85,5 @@ AsyncLinker ──uses──→ AsyncInterface
 
 ## Qualifiers
 
-DI bindings for `AsyncParallelModule` use Qualifier attributes in `src/Qualifier/`:
-- `AppNamespace`, `Context`, `AppDir`, `PoolSize`
+DI qualifier attributes live in `src/Qualifier/`: `Context`, `PoolSize`.
+Application name and directory are read from the injected `AbstractAppMeta`.

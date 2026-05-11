@@ -4,34 +4,29 @@ declare(strict_types=1);
 
 namespace BEAR\Async\Adapter;
 
+use BEAR\AppMeta\AbstractAppMeta;
 use BEAR\Async\AsyncInterface;
 use BEAR\Async\AsyncRequest;
-use BEAR\Async\Exception\BootstrapFileException;
-use BEAR\Async\Qualifier\AppDir;
-use BEAR\Async\Qualifier\AppNamespace;
 use BEAR\Async\Qualifier\Context;
 use BEAR\Async\Qualifier\PoolSize;
 use BEAR\Async\RequestTask;
+use BEAR\Async\Worker\PayloadValidator;
+use BEAR\Async\Worker\WorkerResourceCache;
 use Override;
 use parallel\Future;
 use parallel\Runtime;
 
 use function array_keys;
 use function array_values;
+use function dirname;
 use function extension_loaded;
-use function file_exists;
-use function file_put_contents;
-use function sprintf;
-use function sys_get_temp_dir;
-use function tempnam;
-use function unlink;
 
 /**
  * ext-parallel based async execution using thread pool
  *
  * This implementation uses PHP's parallel extension for true parallel
- * execution across multiple threads. Each Runtime maintains its own
- * bootstrapped application instance for efficient reuse.
+ * execution across multiple threads. Each Runtime lazily builds a single
+ * ResourceInterface via WorkerResourceCache and reuses it across tasks.
  *
  * Requirements:
  * - PHP built with ZTS (Zend Thread Safety)
@@ -48,41 +43,21 @@ final class ParallelAsync implements AsyncInterface
 
     private readonly string $bootstrapFile;
 
-    /**
-     * @param string       $namespace Application namespace (e.g., 'MyVendor\MyApp')
-     * @param string       $context   Application context (e.g., 'prod-app')
-     * @param string       $appDir    Application root directory
-     * @param positive-int $poolSize  Number of parallel runtimes (threads)
-     */
+    private readonly string $name;
+
+    private readonly string $appDir;
+
+    /** @param positive-int $poolSize Number of parallel runtimes (threads) */
     public function __construct(
-        #[AppNamespace] string $namespace,
-        #[Context] string $context,
-        #[AppDir] string $appDir,
-        #[PoolSize] private readonly int $poolSize = 4,
+        AbstractAppMeta $meta,
+        #[Context]
+        private readonly string $context,
+        #[PoolSize]
+        private readonly int $poolSize = 4,
     ) {
-        $this->bootstrapFile = $this->createBootstrapFile($namespace, $context, $appDir);
-    }
-
-    private function createBootstrapFile(string $namespace, string $context, string $appDir): string
-    {
-        $autoloadFile = $appDir . '/vendor/autoload.php';
-        $template = <<<'PHP'
-<?php
-require '%s';
-$GLOBALS['__bear_async_resource'] = \BEAR\Package\Injector::getInstance('%s', '%s', '%s')->getInstance(\BEAR\Resource\ResourceInterface::class);
-PHP;
-        $content = sprintf($template, $autoloadFile, $namespace, $context, $appDir);
-        $file = tempnam(sys_get_temp_dir(), 'bear_async_');
-        if ($file === false) {
-            throw new BootstrapFileException('Failed to create temporary bootstrap file');
-        }
-
-        $result = file_put_contents($file, $content);
-        if ($result === false) {
-            throw new BootstrapFileException(sprintf('Failed to write bootstrap file: %s', $file));
-        }
-
-        return $file;
+        $this->name = $meta->name;
+        $this->appDir = $meta->appDir;
+        $this->bootstrapFile = dirname(__DIR__, 2) . '/worker-bootstrap.php';
     }
 
     #[Override]
@@ -104,6 +79,7 @@ PHP;
         foreach ($taskList as $i => $task) {
             $runtime = $this->pool[$i % $this->poolSize];
             [$uri, $query] = $this->extractUriAndQuery($task);
+            PayloadValidator::assertCopyable($query, '$query');
 
             $future = $runtime->run(
                 /**
@@ -111,16 +87,17 @@ PHP;
                  *
                  * @return array<string, mixed>|null
                  */
-                static function (string $uri, array $query): array|null {
-                    /** @var \BEAR\Resource\ResourceInterface $resource */
-                    $resource = $GLOBALS['__bear_async_resource'];
+                static function (string $name, string $context, string $appDir, string $uri, array $query): array|null {
+                    $resource = WorkerResourceCache::getOrInit($name, $context, $appDir);
                     /** @var array<string, mixed> $query */
                     $ro = $resource->get($uri, $query);
+                    /** @var array<string, mixed>|null $body */
+                    $body = $ro->body;
+                    PayloadValidator::assertCopyable($body, '$body');
 
-                    /** @var array<string, mixed>|null */
-                    return $ro->body;
+                    return $body;
                 },
-                [$uri, $query],
+                [$this->name, $this->context, $this->appDir, $uri, $query],
             );
             if ($future !== null) {
                 $futures[$i] = $future;
@@ -155,20 +132,18 @@ PHP;
         foreach ($requestList as $i => $request) {
             $runtime = $this->pool[$i % $this->poolSize];
             [$uri, $query] = $this->extractUriAndQueryFromAsyncRequest($request);
+            PayloadValidator::assertCopyable($query, '$query');
 
             $future = $runtime->run(
-                /**
-                 * @param array<string, mixed> $query
-                 */
-                static function (string $uri, array $query): string {
-                    /** @var \BEAR\Resource\ResourceInterface $resource */
-                    $resource = $GLOBALS['__bear_async_resource'];
+                /** @param array<string, mixed> $query */
+                static function (string $name, string $context, string $appDir, string $uri, array $query): string {
+                    $resource = WorkerResourceCache::getOrInit($name, $context, $appDir);
                     /** @var array<string, mixed> $query */
                     $ro = $resource->get($uri, $query);
 
                     return (string) $ro;
                 },
-                [$uri, $query],
+                [$this->name, $this->context, $this->appDir, $uri, $query],
             );
             if ($future !== null) {
                 $futures[$i] = $future;
@@ -225,10 +200,6 @@ PHP;
     {
         foreach ($this->pool as $runtime) {
             $runtime->kill();
-        }
-
-        if (file_exists($this->bootstrapFile)) {
-            @unlink($this->bootstrapFile);
         }
     }
 }

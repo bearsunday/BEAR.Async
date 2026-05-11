@@ -23,38 +23,77 @@ composer require bear/async
 
 ## Usage
 
-### Parallel Module (ext-parallel)
+### Parallel execution (ext-parallel)
 
-Recommended for typical web applications with embedded resources.
+Recommended for typical PHP-FPM / Apache web applications with embedded
+resources.
+
+`AppModule` stays ignorant of execution form. Add a dedicated entrypoint
+`bin/async.php` next to `bin/app.php` that picks the parallel runtime
+profile, the same way `bin/swoole.php` does for Swoole:
 
 ```php
-use BEAR\Async\Module\AsyncParallelModule;
-use Ray\Di\AbstractModule;
+<?php // bin/async.php
 
-class AppModule extends AbstractModule
-{
-    protected function configure(): void
-    {
-        $this->install(new PackageModule());
-        $this->install(new AsyncParallelModule(
-            namespace: 'MyVendor\MyApp',
-            context: 'prod-app',
-            appDir: dirname(__DIR__),
-        ));
-    }
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/autoload.php';
+
+$bootstrap = dirname(__DIR__) . '/vendor/bear/async/bootstrap.php';
+if (! file_exists($bootstrap)) {
+    throw new LogicException('"bear/async" is not installed.');
 }
-```
 
-Pool size defaults to CPU core count. To override:
+$defaultContext = PHP_SAPI === 'cli' ? 'cli-hal-api-app' : 'hal-api-app';
+$context = getenv('APP_CONTEXT') ?: $defaultContext;
 
-```php
-$this->install(new AsyncParallelModule(
-    namespace: 'MyVendor\MyApp',
-    context: 'prod-app',
-    appDir: dirname(__DIR__),
-    poolSize: 8,
+exit((require $bootstrap)(
+    $context,
+    'MyVendor\MyApp',
+    dirname(__DIR__),
+    $GLOBALS,
+    $_SERVER,
 ));
 ```
+
+The library bootstrap installs `AsyncParallelBootstrapModule` over your
+`AppModule`, which in turn installs the mechanism module
+`AsyncParallelModule`. You should **not** install `AsyncParallelModule`
+directly inside `AppModule` — `AppModule` should not know it is running
+under ext-parallel.
+
+To override the worker pool size (default = CPU cores), pass it as the
+optional 6th argument:
+
+```php
+exit((require $bootstrap)($context, 'MyVendor\MyApp', dirname(__DIR__), $GLOBALS, $_SERVER, 8));
+```
+
+#### Constraints
+
+Worker Runtimes are separate threads with their own zend memory. Embedded
+resources executed via this module must satisfy:
+
+- **Pure / idempotent** — same input must yield same output. Workers do not
+  share request-scoped state (no shared session, no shared logger context).
+- **Each worker holds its own DI container** — singletons in `AppModule`
+  are not the same instance across threads. Avoid relying on
+  "same-instance" guarantees inside parallelizable embeds.
+- **Payload copyability** — arguments passed across the thread boundary
+  (currently the `query` array) and return values (`$ro->body` or the
+  rendered string) must be scalar / null / nested arrays of those.
+  Objects, closures, and resources will fail fast via
+  `NonCopyablePayloadException`.
+- **Interceptors that mutate request-local state will misbehave** across
+  worker boundaries. Keep cross-cutting concerns idempotent or scope them
+  outside the parallelized embed graph.
+
+#### Scope
+
+This module targets PHP-FPM / Apache style request-per-process runtimes.
+For long-running Swoole HTTP Server use `AsyncSwooleModule` instead — its
+coroutines share the same process memory and do not have the cross-thread
+copyability constraint.
 
 ### Swoole Module (ext-swoole)
 
@@ -80,21 +119,22 @@ class AppModule extends AbstractModule
 }
 ```
 
-## Which Module Should I Use?
+## Which module should I use?
 
-| Use Case | Recommended Module |
-|----------|-------------------|
-| PHP-FPM / Apache with embedded resources | `AsyncParallelModule` |
-| Swoole HTTP Server | `AsyncSwooleModule` |
+| Use Case | Entrypoint | Bootstrap module |
+|---|---|---|
+| PHP-FPM / Apache with embedded resources | `bin/async.php` | `AsyncParallelBootstrapModule` (installed by library bootstrap) |
+| Swoole HTTP Server | `bin/swoole.php` | `AsyncSwooleModule` (in AppModule) |
 
 ### Comparison
 
-| | AsyncParallelModule | AsyncSwooleModule |
+| | ext-parallel | ext-swoole |
 |---|---|---|
 | Concurrency | Thread pool (CPU cores) | Coroutines (thousands) |
+| Memory | Separate per worker | Shared (process-level) |
 | PDO handling | Isolated per thread | Connection pool required |
 | Server | PHP-FPM / Apache | Swoole HTTP Server |
-| Setup | Simple | Requires Swoole server |
+| Setup | Add `bin/async.php` | Add `bin/swoole.php` |
 
 ## How It Works
 

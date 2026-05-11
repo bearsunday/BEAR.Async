@@ -24,17 +24,34 @@ With BEAR.Async module installed, these 3 embeds execute **in parallel** instead
 
 ## Modules
 
-### AsyncParallelModule
+### Parallel execution (ext-parallel)
 
-For PHP-FPM/Apache environments using ext-parallel thread pool.
+For PHP-FPM/Apache environments using an ext-parallel thread pool. `AppModule`
+stays ignorant of execution form — add a dedicated `bin/async.php` entrypoint
+that loads the library bootstrap:
 
 ```php
-$this->install(new AsyncParallelModule(
-    namespace: 'MyVendor\MyApp',
-    context: 'prod-app',
-    appDir: dirname(__DIR__),
+<?php // bin/async.php
+
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/autoload.php';
+
+$bootstrap = dirname(__DIR__) . '/vendor/bear/async/bootstrap.php';
+$context = getenv('APP_CONTEXT') ?: 'hal-api-app';
+
+exit((require $bootstrap)(
+    $context,
+    'MyVendor\MyApp',
+    dirname(__DIR__),
+    $GLOBALS,
+    $_SERVER,
 ));
 ```
+
+The library bootstrap installs `AsyncParallelBootstrapModule` over your
+`AppModule`, which in turn installs the mechanism module `AsyncParallelModule`.
+You should **not** install `AsyncParallelModule` directly inside `AppModule`.
 
 ### AsyncSwooleModule
 

@@ -10,6 +10,7 @@ declare(strict_types=1);
  * Usage: php scenario-benchmark.php [iterations]
  */
 
+use BEAR\Async\Module\AsyncParallelBootstrapModule;
 use BEAR\AsyncDemo\Injector;
 use BEAR\Sunday\Extension\Application\AppInterface;
 
@@ -62,7 +63,10 @@ foreach ($scenarios as [$name, $embedCount, $delayMs, $description]) {
 
     // Parallel execution
     echo "   Parallel: ";
-    $parallelApp = Injector::getInstance('prod-parallel-hal-app')->getInstance(AppInterface::class);
+    $parallelApp = Injector::getOverrideInstance(
+        'prod-hal-app',
+        new AsyncParallelBootstrapModule('prod-hal-app', 8),
+    )->getInstance(AppInterface::class);
     $parallelResource = $parallelApp->resource;
 
     // Warmup

@@ -100,6 +100,14 @@ jobs:
           echo "Test DB connection:"
           docker compose run --rm php php -r "new PDO(getenv('DB_DSN'), getenv('DB_USER'), getenv('DB_PASS')); echo 'OK';"
 
+      - name: Smoke test bin/async.php entrypoint
+        # Exercises the integrated bootstrap chain that benchmarks bypass:
+        # bin/async.php → vendor/bear/async/bootstrap.php → AsyncParallelBootstrapModule
+        # → AsyncParallelModule.configure() → parallel\Runtime spawn → worker-bootstrap.php autoload
+        # → WorkerResourceCache::getOrInit. Catches regressions in CLI routing,
+        # override injector wiring, and worker autoload path resolution.
+        run: docker compose run --rm php php demo/bin/async.php get 'app://self/dashboard?user_id=1'
+
       - name: Run ext-parallel benchmark
         run: docker compose run --rm php php demo/bin/parallel-benchmark.php 3
 

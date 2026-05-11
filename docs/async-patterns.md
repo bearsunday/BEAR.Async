@@ -215,8 +215,8 @@ final class SyncAsync implements AsyncInterface { /* ... */ }  // Fallback
 ```
 
 **Module Selection**:
-- `AsyncSwooleModule` - For Swoole HTTP servers
-- `AsyncParallelModule` - For PHP-FPM/Apache environments
+- `AsyncSwooleModule` - For Swoole HTTP servers (installed in `AppModule`)
+- `AsyncParallelBootstrapModule` - For PHP-FPM/Apache environments (installed via `bin/async.php` → library `bootstrap.php`)
 - Auto-fallback to `SyncAsync` when no async runtime detected
 
 ## Anti-Patterns to Avoid

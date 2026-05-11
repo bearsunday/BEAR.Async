@@ -55,13 +55,17 @@ composer swoole-benchmark
 
 Requires: PHP with ext-swoole
 
-## Contexts
+## Contexts and entrypoints
 
-| Context | Module | Description |
-|---------|--------|-------------|
-| `prod-hal-app` | AppModule | Sync execution (baseline) |
-| `prod-parallel-hal-app` | ParallelModule | ext-parallel thread pool |
-| `prod-swoole-hal-app` | SwooleModule | ext-swoole coroutines |
+| Entrypoint | Context | Execution | Description |
+|---|---|---|---|
+| `bin/app.php` | `prod-hal-app` | Sync (baseline) | Standard FPM/CLI request |
+| `bin/async.php` | `prod-hal-app` | ext-parallel threads | Same AppModule, parallel `#[Embed]` via override |
+| `bin/swoole.php` | `prod-hal-app` | ext-swoole coroutines | Long-running coroutine HTTP server |
+
+The application's `AppModule` does not know about execution form. The entrypoint
+(`bin/*.php`) declares the runtime profile and overrides the appropriate
+bootstrap module on top of `AppModule`.
 
 ## Docker (MySQL)
 
@@ -102,10 +106,12 @@ composer tests              # Run all quality checks
 composer cs-fix             # Fix coding standards
 ```
 
-Note: Use `APP_CONTEXT` environment variable to change context:
+Note: Use `APP_CONTEXT` environment variable to change context. For
+ext-parallel execution use `bin/async.php` rather than a parallel-prefixed
+context:
 
 ```bash
-APP_CONTEXT=prod-parallel-hal-app php bin/app.php get app://self/dashboard
+APP_CONTEXT=prod-hal-app php bin/async.php get app://self/dashboard
 ```
 
 ## Links

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace BEAR\Async\Module;
 
-use BEAR\Async\Adapter\ParallelAsync;
-use BEAR\Async\AsyncInterface;
+use BEAR\Async\Exception\RecursiveWorkerSpawnException;
+use BEAR\Async\Worker\WorkerResourceCache;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
 use Ray\Di\Injector;
@@ -13,29 +13,30 @@ use Ray\Di\Injector;
 #[RequiresPhpExtension('parallel')]
 class AsyncParallelModuleTest extends TestCase
 {
-    public function testModuleCanBeInstantiated(): void
+    protected function tearDown(): void
     {
-        $module = new AsyncParallelModule(
-            namespace: 'MyVendor\MyApp',
-            context: 'prod-app',
-            appDir: '/path/to/app',
-        );
+        WorkerResourceCache::reset();
+    }
+
+    public function testModuleCanBeInstantiatedWithDefaults(): void
+    {
+        $module = new AsyncParallelModule();
 
         $this->assertInstanceOf(AsyncParallelModule::class, $module);
     }
 
-    public function testAsyncInterfaceBinding(): void
+    public function testModuleCanBeInstantiatedWithExplicitPoolSize(): void
     {
-        $module = new AsyncParallelModule(
-            namespace: 'MyVendor\MyApp',
-            context: 'prod-app',
-            appDir: '/path/to/app',
-            poolSize: 4,
-        );
-        $injector = new Injector($module);
+        $module = new AsyncParallelModule(poolSize: 4);
 
-        $async = $injector->getInstance(AsyncInterface::class);
+        $this->assertInstanceOf(AsyncParallelModule::class, $module);
+    }
 
-        $this->assertInstanceOf(ParallelAsync::class, $async);
+    public function testConfigureFailsFastInsideWorker(): void
+    {
+        WorkerResourceCache::markAsWorker();
+
+        $this->expectException(RecursiveWorkerSpawnException::class);
+        new Injector(new AsyncParallelModule(poolSize: 2));
     }
 }

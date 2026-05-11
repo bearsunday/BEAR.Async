@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use BEAR\Async\Module\AsyncParallelBootstrapModule;
 use BEAR\AsyncDemo\Injector;
 use BEAR\Sunday\Extension\Application\AppInterface;
 
@@ -33,9 +34,12 @@ for ($i = 0; $i < $iterations; $i++) {
 $syncAvg = array_sum($syncTimes) / count($syncTimes);
 printf("  Average: %.2f ms\n\n", $syncAvg);
 
-// Parallel execution (prod-parallel-hal-app context)
-echo "Parallel execution (prod-parallel-hal-app)...\n";
-$parallelApp = Injector::getInstance('prod-parallel-hal-app')->getInstance(AppInterface::class);
+// Parallel execution (same context, AsyncParallelBootstrapModule override)
+echo "Parallel execution (prod-hal-app + AsyncParallelBootstrapModule override)...\n";
+$parallelApp = Injector::getOverrideInstance(
+    'prod-hal-app',
+    new AsyncParallelBootstrapModule('prod-hal-app', 8),
+)->getInstance(AppInterface::class);
 $parallelResource = $parallelApp->resource;
 
 // Warmup run (thread pool initialization)
