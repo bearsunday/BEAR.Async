@@ -86,12 +86,13 @@ final class MysqliBatchExecutor implements SqlBatchExecutorInterface
             if ($params !== []) {
                 // Parameterized queries: execute synchronously (mysqli limitation)
                 $syncResults[$key] = $this->executeSyncWithParams($sql, $params);
-            } else {
-                // Simple queries: execute asynchronously
-                $mysqli = $this->factory->create();
-                $asyncConnections[$key] = $mysqli;
-                $mysqli->query($sql, MYSQLI_ASYNC);
+                continue;
             }
+
+            // Simple queries: execute asynchronously
+            $mysqli = $this->factory->create();
+            $asyncConnections[$key] = $mysqli;
+            $mysqli->query($sql, MYSQLI_ASYNC);
         }
 
         return [$asyncConnections, $syncResults];
