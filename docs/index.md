@@ -49,9 +49,8 @@ exit((require $bootstrap)(
 ));
 ```
 
-The library bootstrap installs `AsyncParallelBootstrapModule` over your
-`AppModule`, which in turn installs the mechanism module `AsyncParallelModule`.
-You should **not** install `AsyncParallelModule` directly inside `AppModule`.
+The library bootstrap overlays the ext-parallel runtime on your `AppModule`.
+Applications should not install the internal runtime modules directly.
 
 ### AsyncSwooleModule
 

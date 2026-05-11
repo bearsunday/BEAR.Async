@@ -12,21 +12,21 @@ use Ray\Di\AbstractModule;
 use function sprintf;
 
 /**
- * Context-aware orchestrator for ext-parallel async execution.
+ * Context-aware runtime override for ext-parallel async execution.
  *
  * Binds the current application context (so `ParallelAsync` can pass it to
  * worker Runtimes when spawning them) and installs the mechanism module
- * `AsyncParallelModule`. This split lets `AsyncParallelModule` itself stay
+ * `ParallelModule`. This split lets `ParallelModule` itself stay
  * context-unaware: only this module knows what context the application is
  * currently running under.
  *
- * Intended to be installed by the library-provided `bootstrap.php` from
- * the user's `bin/async.php` entrypoint. Not for direct installation in
- * `AppModule` — AppModule should be ignorant of execution form.
+ * Installed by the library-provided `bootstrap.php` from the user's
+ * `bin/async.php` entrypoint. Not for direct installation in `AppModule` —
+ * AppModule should be ignorant of execution form.
  *
  * @internal
  */
-final class AsyncParallelBootstrapModule extends AbstractModule
+final class ParallelRuntimeModule extends AbstractModule
 {
     /**
      * @param string   $context  Application context propagated to worker Runtimes (e.g., 'prod-hal-app'); must be non-empty.
@@ -53,6 +53,6 @@ final class AsyncParallelBootstrapModule extends AbstractModule
     protected function configure(): void
     {
         $this->bind()->annotatedWith(Context::class)->toInstance($this->context);
-        $this->install(new AsyncParallelModule($this->poolSize));
+        $this->install(new ParallelModule($this->poolSize));
     }
 }
