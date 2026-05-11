@@ -11,7 +11,7 @@ Async/parallel resource execution library for BEAR.Sunday.
 
 BEAR.Async enables transparent parallel execution of BEAR.Sunday's `#[Embed]` resources.
 
-Traditional async programming requires rewriting code with special syntax like async/await, Promise, or yield. Developers must explicitly manage concurrency and learn new patterns. BEAR.Async takes a different approach: BEAR.Async preserves your resource code. You choose an async execution mode at the application boundary — your existing `#[Embed]` attributes work as-is and embedded resources automatically execute in parallel.
+Traditional async programming requires rewriting code with special syntax like async/await, Promise, or yield. Developers must explicitly manage concurrency and learn new patterns. BEAR.Async takes a different approach: it preserves your resource code and lets you choose an async execution mode at the application boundary. Your existing `#[Embed]` attributes work as-is and embedded resources automatically execute in parallel.
 
 ```php
 #[Embed(rel: 'profile', src: 'app://self/user/profile?id={user_id}')]
