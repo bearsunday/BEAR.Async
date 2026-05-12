@@ -34,8 +34,9 @@ public function onGet(int $user_id = 1): static
 
 ```bash
 composer install
-php bin/setup.php
 ```
+
+`composer install` runs `composer setup` automatically via `post-install-cmd`, which initializes the SQLite database under `var/db/`.
 
 ## Benchmarks
 
@@ -57,11 +58,11 @@ Requires: PHP with ext-swoole
 
 ## Contexts and entrypoints
 
-| Entrypoint | Context | Execution | Description |
-|---|---|---|---|
-| `bin/app.php` | `prod-hal-app` | Sync (baseline) | Standard FPM/CLI request |
-| `bin/async.php` | `prod-hal-app` | ext-parallel threads | Same AppModule, parallel `#[Embed]` via override |
-| `bin/swoole.php` | `prod-hal-app` | ext-swoole coroutines | Long-running coroutine HTTP server |
+| Composer script | Entrypoint | Context | Execution | Description |
+|---|---|---|---|---|
+| `composer app` | `bin/app.php` | `prod-hal-app` | Sync (baseline) | Standard FPM/CLI request |
+| `composer async` | `bin/async.php` | `prod-hal-app` | ext-parallel threads | Same AppModule, parallel `#[Embed]` via override |
+| `composer swoole` | `bin/swoole.php` | `prod-hal-app` | ext-swoole coroutines | Long-running coroutine HTTP server |
 
 The application's `AppModule` does not know about execution form. The entrypoint
 (`bin/*.php`) declares the runtime profile and overrides the appropriate
@@ -72,11 +73,8 @@ bootstrap module on top of `AppModule`.
 For MySQL benchmarks with realistic I/O latency:
 
 ```bash
-# Start MySQL
-docker compose up -d
-
-# Wait for MySQL to be ready
-docker compose exec mysql mysqladmin ping -h localhost --wait
+composer docker:up         # Start MySQL container
+composer docker:wait       # Wait for MySQL to accept connections
 
 # Create env.json for MySQL
 cat > env.json << 'EOF'
@@ -87,31 +85,43 @@ cat > env.json << 'EOF'
 }
 EOF
 
-# Run benchmarks
 composer parallel-benchmark
 composer swoole-benchmark
+
+composer docker:down       # Stop MySQL when done
 ```
 
 ## Commands
 
+All demo operations are exposed as composer scripts. Use `composer run --list`
+to discover everything; the common ones are:
+
 ```bash
 composer setup              # Initialize database
+composer app                # Request via sync entrypoint (bin/app.php)
+composer async              # Request via ext-parallel entrypoint (bin/async.php)
+composer swoole             # Start ext-swoole coroutine HTTP server (bin/swoole.php)
 composer parallel-benchmark # Run ext-parallel benchmark
 composer swoole-benchmark   # Run ext-swoole benchmark
 composer xprofile           # Profile dashboard (sync) with Xdebug
 composer xprofile-parallel  # Profile dashboard (parallel) with Xdebug
 composer xprofile-swoole    # Profile dashboard (swoole) with Xdebug
+composer docker:up          # Start MySQL container
+composer docker:wait        # Wait for MySQL to be ready
+composer docker:down        # Stop MySQL container
 composer test               # Run unit tests
 composer tests              # Run all quality checks
 composer cs-fix             # Fix coding standards
 ```
 
-Note: Use `APP_CONTEXT` environment variable to change context. For
-ext-parallel execution use `bin/async.php` rather than a parallel-prefixed
+Composer forwards extra arguments to the underlying script, so you can pass a
+method and URI to the entrypoint scripts. Use `--` to keep the args separate
+from composer options, and prefix with `APP_CONTEXT=` to change the runtime
 context:
 
 ```bash
-APP_CONTEXT=prod-hal-app php bin/async.php get app://self/dashboard
+composer async -- get 'app://self/dashboard?user_id=1'
+APP_CONTEXT=prod-hal-app composer async -- get 'app://self/dashboard'
 ```
 
 ## Links
