@@ -1,6 +1,17 @@
 services:
-  app:
-    build: .
+  parallel:
+    build:
+      context: .
+      target: parallel
+    volumes:
+      - ..:/workspace
+    working_dir: /workspace/demo
+    command: ["sleep", "infinity"]
+
+  swoole:
+    build:
+      context: .
+      target: swoole
     volumes:
       - ..:/workspace
     working_dir: /workspace/demo
