@@ -9,18 +9,12 @@
             "email": "akihito.koriyama@gmail.com"
         }
     ],
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/bearsunday/BEAR.Resource"
-        }
-    ],
     "require": {
         "php": "^8.2",
         "aura/sql": "^5.0 || ^6.0",
         "bear/app-meta": "^1.6",
         "bear/package": "^1.14",
-        "bear/resource": "dev-hal-renderer-string-cast as 1.31.99",
+        "bear/resource": "^1.32",
         "ray/di": "^2.18"
     },
     "require-dev": {
