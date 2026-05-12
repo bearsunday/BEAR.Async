@@ -15,6 +15,7 @@ use BEAR\Async\Worker\WorkerResourceCache;
 use Override;
 use parallel\Future;
 use parallel\Runtime;
+use Throwable;
 
 use function array_keys;
 use function array_values;
@@ -199,7 +200,11 @@ final class ParallelAsync implements AsyncInterface
     public function __destruct()
     {
         foreach ($this->pool as $runtime) {
-            $runtime->kill();
+            try {
+                $runtime->close();
+            } catch (Throwable) {
+                // Runtime may already be closed while PHP is shutting down.
+            }
         }
     }
 }
