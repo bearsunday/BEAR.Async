@@ -15,7 +15,6 @@ use BEAR\Async\Worker\WorkerResourceCache;
 use Override;
 use parallel\Future;
 use parallel\Runtime;
-use Throwable;
 
 use function array_keys;
 use function array_values;
@@ -105,14 +104,10 @@ final class ParallelAsync implements AsyncInterface
             }
         }
 
-        try {
-            foreach ($futures as $i => $future) {
-                /** @var array<string, mixed>|null $result */
-                $result = $future->value();
-                $taskList[$i]->setResult($result);
-            }
-        } finally {
-            $this->releasePool();
+        foreach ($futures as $i => $future) {
+            /** @var array<string, mixed>|null $result */
+            $result = $future->value();
+            $taskList[$i]->setResult($result);
         }
     }
 
@@ -155,18 +150,14 @@ final class ParallelAsync implements AsyncInterface
             }
         }
 
-        try {
-            $results = [];
-            foreach ($futures as $i => $future) {
-                /** @var string $result */
-                $result = $future->value();
-                $results[$uris[$i]] = $result;
-            }
-
-            return $results;
-        } finally {
-            $this->releasePool();
+        $results = [];
+        foreach ($futures as $i => $future) {
+            /** @var string $result */
+            $result = $future->value();
+            $results[$uris[$i]] = $result;
         }
+
+        return $results;
     }
 
     /**
@@ -207,40 +198,8 @@ final class ParallelAsync implements AsyncInterface
 
     public function __destruct()
     {
-        $this->releasePool();
-    }
-
-    private function releasePool(): void
-    {
-        $this->resetWorkerCaches();
-
         foreach ($this->pool as $runtime) {
-            try {
-                $runtime->close();
-            } catch (Throwable) {
-                // Runtime may already be closed while PHP is shutting down.
-            }
-        }
-
-        $this->pool = [];
-        $this->initialized = false;
-    }
-
-    private function resetWorkerCaches(): void
-    {
-        foreach ($this->pool as $runtime) {
-            try {
-                $future = $runtime->run(static function (): void {
-                    WorkerResourceCache::reset();
-                });
-                if ($future === null) {
-                    continue;
-                }
-
-                $future->value();
-            } catch (Throwable) {
-                // Runtime may already be closed while PHP is shutting down.
-            }
+            $runtime->kill();
         }
     }
 }
