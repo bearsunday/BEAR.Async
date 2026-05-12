@@ -199,9 +199,25 @@ final class ParallelAsync implements AsyncInterface
 
     public function __destruct()
     {
+        $this->resetWorkerCaches();
+
         foreach ($this->pool as $runtime) {
             try {
                 $runtime->close();
+            } catch (Throwable) {
+                // Runtime may already be closed while PHP is shutting down.
+            }
+        }
+    }
+
+    private function resetWorkerCaches(): void
+    {
+        foreach ($this->pool as $runtime) {
+            try {
+                $future = $runtime->run(static function (): void {
+                    WorkerResourceCache::reset();
+                });
+                $future->value();
             } catch (Throwable) {
                 // Runtime may already be closed while PHP is shutting down.
             }
