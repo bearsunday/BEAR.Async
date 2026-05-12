@@ -13,62 +13,42 @@ if (! extension_loaded('swoole')) {
     exit(1);
 }
 
-$iterations = (int) ($argv[1] ?? 3);
-
 echo "BEAR.Async Swoole Benchmark\n";
 echo "===========================\n";
-echo "8 embedded SQL resources\n";
-echo "Expected: Sync ~sequential, Swoole ~parallel execution\n\n";
+echo "8 embedded SQL resources, one request each\n\n";
 
-// Sync execution (prod-hal-app context - no async module)
 echo "Sync execution (prod-hal-app)...\n";
-$syncApp = Injector::getInstance('prod-hal-app')->getInstance(AppInterface::class);
-$syncResource = $syncApp->resource;
+$syncResource = Injector::getInstance('prod-hal-app')
+    ->getInstance(AppInterface::class)
+    ->resource;
 
-$syncTimes = [];
-for ($i = 0; $i < $iterations; $i++) {
-    $start = hrtime(true);
-    $response = $syncResource->get->uri('app://self/dashboard')->eager->request();
-    $view = (string) $response;
-    $elapsed = (hrtime(true) - $start) / 1_000_000;
-    $syncTimes[] = $elapsed;
-    printf("  Run %d: %.2f ms\n", $i + 1, $elapsed);
-}
+$start = hrtime(true);
+$response = $syncResource->get->uri('app://self/dashboard')->eager->request();
+$view = (string) $response;
+$syncTime = (hrtime(true) - $start) / 1_000_000;
+printf("  Elapsed: %.2f ms\n\n", $syncTime);
 
-$syncAvg = array_sum($syncTimes) / count($syncTimes);
-printf("  Average: %.2f ms\n\n", $syncAvg);
-
-Coroutine\run(static function () use ($iterations, $syncAvg): void {
-    // Swoole execution (prod-swoole-hal-app context)
+Coroutine\run(static function () use ($syncTime): void {
     echo "Swoole execution (prod-swoole-hal-app)...\n";
-    $swooleApp = Injector::getInstance('prod-swoole-hal-app')->getInstance(AppInterface::class);
-    $swooleResource = $swooleApp->resource;
+    $swooleResource = Injector::getInstance('prod-swoole-hal-app')
+        ->getInstance(AppInterface::class)
+        ->resource;
 
-    $swooleTimes = [];
-    for ($i = 0; $i < $iterations; $i++) {
-        $start = hrtime(true);
-        $response = $swooleResource->get->uri('app://self/dashboard')->eager->request();
-        $view = (string) $response;
-        $elapsed = (hrtime(true) - $start) / 1_000_000;
-        $swooleTimes[] = $elapsed;
-        printf("  Run %d: %.2f ms\n", $i + 1, $elapsed);
-    }
+    $start = hrtime(true);
+    $response = $swooleResource->get->uri('app://self/dashboard')->eager->request();
+    $view = (string) $response;
+    $swooleTime = (hrtime(true) - $start) / 1_000_000;
+    printf("  Elapsed: %.2f ms\n\n", $swooleTime);
 
-    $swooleAvg = array_sum($swooleTimes) / count($swooleTimes);
-    printf("  Average: %.2f ms\n\n", $swooleAvg);
-
-    // Results
     echo "Results\n";
     echo "-------\n";
-    printf("Sync average:   %.2f ms\n", $syncAvg);
-    printf("Swoole average: %.2f ms\n", $swooleAvg);
+    printf("Sync:   %.2f ms\n", $syncTime);
+    printf("Swoole: %.2f ms\n", $swooleTime);
 
-    if ($swooleAvg > 0) {
-        $speedup = $syncAvg / $swooleAvg;
-        printf("Speedup:        %.2fx\n", $speedup);
+    if ($swooleTime > 0) {
+        printf("Ratio:  %.2fx\n", $syncTime / $swooleTime);
     }
 
-    // Verify HAL output contains embedded resources
     $data = json_decode($view, true);
     $embedCount = isset($data['_embedded']) ? count($data['_embedded']) : 0;
     printf("\nVerification: %d embedded resources in HAL output\n", $embedCount);
