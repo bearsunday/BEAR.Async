@@ -16,6 +16,8 @@ services:
       - ..:/workspace
     working_dir: /workspace/demo
     command: ["sleep", "infinity"]
+    environment:
+      SWOOLE_HOST: "0.0.0.0"
     ports:
       - "8080:8080"
 

@@ -88,6 +88,10 @@ docker compose exec parallel composer parallel-benchmark
 
 ### ext-swoole (Coroutines)
 
+`swoole-benchmark` requires MySQL (Swoole connection pooling does not
+support SQLite). See [MySQL benchmarks](#mysql-benchmarks) for the
+`env.json` setup, then:
+
 ```bash
 docker compose exec swoole composer swoole-benchmark
 ```
@@ -98,7 +102,7 @@ docker compose exec swoole composer swoole-benchmark
 |---|---|---|---|---|
 | `composer app` | `bin/app.php` | `cli-hal-api-app` | Sync (baseline) | `parallel` |
 | `composer async` | `bin/async.php` | `cli-hal-api-app` | ext-parallel threads | `parallel` |
-| `composer swoole` | `bin/swoole.php` | `prod-app` | ext-swoole coroutines | `swoole` |
+| `composer swoole` | `bin/swoole.php` | `prod-hal-api-app` | ext-swoole coroutines | `swoole` |
 
 The application's `AppModule` does not know about execution form. The entrypoint
 (`bin/*.php`) declares the runtime profile and overrides the appropriate
@@ -122,11 +126,20 @@ EOF
 
 docker compose exec parallel composer setup     # re-seed against MySQL
 docker compose exec parallel composer parallel-benchmark
+rm -rf demo/var/tmp/prod-hal-app                # DI cache leaks across images; see below
 docker compose exec swoole composer swoole-benchmark
 ```
 
 Note the host is `mysql` (the compose service name), not `127.0.0.1`,
 because the connection happens inside the container network.
+
+The `parallel` and `swoole` services share `var/tmp` through the
+bind mount, so the DI cache compiled by one image (for example with
+`ParallelRuntimeModule` baked into `prod-hal-app`) can be picked up
+by the other image and fail to load (the swoole image has no
+`parallel\Runtime`). Removing the matching subdirectory under
+`var/tmp/` before switching images is enough — it is rebuilt on next
+run.
 
 ## Commands
 
