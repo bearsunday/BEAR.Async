@@ -23,7 +23,7 @@ use function sprintf;
  */
 final class PendingRequests
 {
-    /** @var array<string, AsyncRequest> URI => AsyncRequest */
+    /** @var array<string, AsyncRequest> URI (from AsyncRequest::toUri()) => AsyncRequest */
     private array $pending = [];
 
     /** @var array<string, string> URI => rendered view string */
@@ -36,8 +36,33 @@ final class PendingRequests
 
     public function add(AsyncRequest $request): void
     {
-        if (! isset($this->results[$request->uri]) && ! isset($this->pending[$request->uri])) {
-            $this->pending[$request->uri] = $request;
+        $uri = $request->toUri();
+        if (! isset($this->results[$uri]) && ! isset($this->pending[$uri])) {
+            $this->pending[$uri] = $request;
+        }
+    }
+
+    /**
+     * Re-key a pending request after its URI changes
+     *
+     * AsyncRequest is registered with its initial URI in {@see add()}. When
+     * the inner request's query/links mutate (via withQuery/addQuery/link*)
+     * the URI changes too, so the pending entry must move to the new key.
+     * Otherwise __toString() (which looks up $this->toUri()) would miss.
+     */
+    public function rekey(string $previousUri, AsyncRequest $request): void
+    {
+        $newUri = $request->toUri();
+        if ($previousUri === $newUri) {
+            return;
+        }
+
+        if (isset($this->pending[$previousUri]) && $this->pending[$previousUri] === $request) {
+            unset($this->pending[$previousUri]);
+        }
+
+        if (! isset($this->results[$newUri]) && ! isset($this->pending[$newUri])) {
+            $this->pending[$newUri] = $request;
         }
     }
 

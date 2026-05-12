@@ -130,6 +130,6 @@ class PendingRequestsTest extends TestCase
         (string) $asyncRequest2;
 
         // Verify URIs are different
-        $this->assertNotSame($asyncRequest1->uri, $asyncRequest2->uri);
+        $this->assertNotSame($asyncRequest1->toUri(), $asyncRequest2->toUri());
     }
 }

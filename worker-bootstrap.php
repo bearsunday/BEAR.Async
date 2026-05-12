@@ -12,5 +12,22 @@ declare(strict_types=1);
  *
  * Expected layout once installed: vendor/bear/async/worker-bootstrap.php
  *   → ../../autoload.php is the application's vendor/autoload.php.
+ *
+ * Source checkouts used as a Composer path repository resolve __DIR__ to the
+ * package root, so the application bootstrap can pass BEAR_ASYNC_AUTOLOAD.
  */
-require __DIR__ . '/../../autoload.php';
+$autoload = getenv('BEAR_ASYNC_AUTOLOAD');
+if (is_string($autoload) && $autoload !== '' && is_file($autoload)) {
+    require $autoload;
+
+    return;
+}
+
+$autoload = __DIR__ . '/../../autoload.php';
+if (is_file($autoload)) {
+    require $autoload;
+
+    return;
+}
+
+throw new RuntimeException('Unable to locate Composer autoload.php for BEAR.Async worker runtime.');

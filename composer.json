@@ -14,7 +14,7 @@
         "aura/sql": "^5.0 || ^6.0",
         "bear/app-meta": "^1.6",
         "bear/package": "^1.14",
-        "bear/resource": "^1.31",
+        "bear/resource": "^1.32",
         "ray/di": "^2.18"
     },
     "require-dev": {

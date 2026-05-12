@@ -5,40 +5,41 @@ declare(strict_types=1);
 namespace BEAR\Async;
 
 use BEAR\Async\Adapter\SyncAsync;
+use BEAR\Async\Fake\AsyncEmbedResource;
+use BEAR\Async\Fake\FakeInvoker;
+use BEAR\Async\Fake\FakeMethodInvocation;
+use BEAR\Async\Fake\FakeResource;
 use BEAR\Async\Fake\FakeResourceObject;
-use BEAR\Resource\AbstractRequest;
-use BEAR\Resource\InvokerInterface;
 use BEAR\Resource\Method;
 use BEAR\Resource\Request;
+use BEAR\Resource\ResourceInterface;
 use BEAR\Resource\ResourceObject;
 use PHPUnit\Framework\TestCase;
-use Ray\Aop\MethodInterceptor;
-use Ray\Aop\MethodInvocation;
+use Ray\Aop\ReflectionMethod;
+use Ray\Di\ProviderInterface;
 
 class AsyncEmbedInterceptorTest extends TestCase
 {
-    public function testWrapsAbstractRequestWithAsyncRequest(): void
+    public function testWrapsEmbedRequestBeforeProceed(): void
     {
-        $invoker = $this->createMock(InvokerInterface::class);
-        $embeddedRo = new FakeResourceObject('app://self/embedded');
-        $request = new Request($invoker, $embeddedRo, Method::GET, []);
+        $mainRo = new FakeResourceObject('app://self/article');
+        $resource = new FakeResource();
 
-        $mainRo = new FakeResourceObject();
-        $mainRo->body = ['embedded' => $request];
+        $interceptor = new AsyncEmbedInterceptor($this->newProvider($resource), new PendingRequests(new SyncAsync()));
+        $invocation = $this->newInvocation($mainRo, new ReflectionMethod(AsyncEmbedResource::class, 'onGet'));
+        $invocation->proceed = function () use ($mainRo): ResourceObject {
+                $this->assertIsArray($mainRo->body);
+                $this->assertInstanceOf(AsyncRequest::class, $mainRo->body['embedded']);
 
-        $innerInterceptor = $this->createMock(MethodInterceptor::class);
-        $innerInterceptor->method('invoke')
-            ->willReturn($mainRo);
+                return $mainRo;
+        };
 
-        $allRequests = new PendingRequests(new SyncAsync());
-        $interceptor = new AsyncEmbedInterceptor($innerInterceptor, $allRequests);
-
-        $invocation = $this->createMock(MethodInvocation::class);
         $result = $interceptor->invoke($invocation);
 
+        $this->assertSame([['method' => Method::GET, 'uri' => 'app://self/embedded', 'query' => []]], $resource->newRequests);
+        $this->assertSame(1, $invocation->proceedCount);
         $this->assertInstanceOf(ResourceObject::class, $result);
         $this->assertIsArray($result->body);
-        $this->assertArrayHasKey('embedded', $result->body);
         $this->assertInstanceOf(AsyncRequest::class, $result->body['embedded']);
     }
 
@@ -46,17 +47,15 @@ class AsyncEmbedInterceptorTest extends TestCase
     {
         $mainRo = new FakeResourceObject();
         $mainRo->body = 'string body'; // @phpstan-ignore assign.propertyType
+        $resource = new FakeResource();
 
-        $innerInterceptor = $this->createMock(MethodInterceptor::class);
-        $innerInterceptor->method('invoke')
-            ->willReturn($mainRo);
+        $interceptor = new AsyncEmbedInterceptor($this->newProvider($resource), new PendingRequests(new SyncAsync()));
+        $invocation = $this->newInvocation($mainRo, new ReflectionMethod(AsyncEmbedResource::class, 'withoutEmbed'));
+        $invocation->proceed = static fn (): ResourceObject => $mainRo;
 
-        $allRequests = new PendingRequests(new SyncAsync());
-        $interceptor = new AsyncEmbedInterceptor($innerInterceptor, $allRequests);
-
-        $invocation = $this->createMock(MethodInvocation::class);
         $result = $interceptor->invoke($invocation);
 
+        $this->assertInstanceOf(ResourceObject::class, $result);
         $this->assertSame('string body', $result->body);
     }
 
@@ -64,48 +63,88 @@ class AsyncEmbedInterceptorTest extends TestCase
     {
         $mainRo = new FakeResourceObject();
         $mainRo->body = ['key' => 'value', 'number' => 42];
+        $resource = new FakeResource();
 
-        $innerInterceptor = $this->createMock(MethodInterceptor::class);
-        $innerInterceptor->method('invoke')
-            ->willReturn($mainRo);
+        $interceptor = new AsyncEmbedInterceptor($this->newProvider($resource), new PendingRequests(new SyncAsync()));
+        $invocation = $this->newInvocation($mainRo, new ReflectionMethod(AsyncEmbedResource::class, 'withoutEmbed'));
+        $invocation->proceed = static fn (): ResourceObject => $mainRo;
 
-        $allRequests = new PendingRequests(new SyncAsync());
-        $interceptor = new AsyncEmbedInterceptor($innerInterceptor, $allRequests);
-
-        $invocation = $this->createMock(MethodInvocation::class);
         $result = $interceptor->invoke($invocation);
 
+        $this->assertInstanceOf(ResourceObject::class, $result);
         $this->assertSame('value', $result->body['key']);
         $this->assertSame(42, $result->body['number']);
     }
 
-    public function testWrapsMultipleRequests(): void
+    public function testWrapsMultipleEmbedRequests(): void
     {
-        $invoker = $this->createMock(InvokerInterface::class);
-        $embeddedRo1 = new FakeResourceObject('app://self/user');
-        $embeddedRo2 = new FakeResourceObject('app://self/posts');
-        $request1 = new Request($invoker, $embeddedRo1, Method::GET, []);
-        $request2 = new Request($invoker, $embeddedRo2, Method::GET, []);
+        $mainRo = new FakeResourceObject('app://self/article');
+        $resource = new FakeResource();
 
-        $mainRo = new FakeResourceObject();
-        $mainRo->body = [
-            'user' => $request1,
-            'posts' => $request2,
-            'title' => 'Page Title',
-        ];
+        $interceptor = new AsyncEmbedInterceptor($this->newProvider($resource), new PendingRequests(new SyncAsync()));
+        $invocation = $this->newInvocation($mainRo, new ReflectionMethod(AsyncEmbedResource::class, 'withMultipleEmbeds'));
+        $invocation->proceed = static function () use ($mainRo): ResourceObject {
+            $mainRo->body += ['title' => 'Page Title'];
 
-        $innerInterceptor = $this->createMock(MethodInterceptor::class);
-        $innerInterceptor->method('invoke')
-            ->willReturn($mainRo);
+            return $mainRo;
+        };
 
-        $allRequests = new PendingRequests(new SyncAsync());
-        $interceptor = new AsyncEmbedInterceptor($innerInterceptor, $allRequests);
-
-        $invocation = $this->createMock(MethodInvocation::class);
         $result = $interceptor->invoke($invocation);
 
+        $this->assertInstanceOf(ResourceObject::class, $result);
+        $this->assertIsArray($result->body);
         $this->assertInstanceOf(AsyncRequest::class, $result->body['user']);
         $this->assertInstanceOf(AsyncRequest::class, $result->body['posts']);
         $this->assertSame('Page Title', $result->body['title']);
+    }
+
+    public function testWrapsRequestCreatedDuringProceed(): void
+    {
+        $mainRo = new FakeResourceObject('app://self/article');
+        $resource = new FakeResource();
+        $request = $this->newRequest('app://self/late');
+
+        $interceptor = new AsyncEmbedInterceptor($this->newProvider($resource), new PendingRequests(new SyncAsync()));
+        $invocation = $this->newInvocation($mainRo, new ReflectionMethod(AsyncEmbedResource::class, 'withoutEmbed'));
+        $invocation->proceed = static function () use ($mainRo, $request): ResourceObject {
+            $mainRo->body = ['late' => $request];
+
+            return $mainRo;
+        };
+
+        $result = $interceptor->invoke($invocation);
+
+        $this->assertInstanceOf(ResourceObject::class, $result);
+        $this->assertIsArray($result->body);
+        $this->assertInstanceOf(AsyncRequest::class, $result->body['late']);
+    }
+
+    private function newRequest(string $uri): Request
+    {
+        $ro = new FakeResourceObject($uri);
+        $invoker = new FakeInvoker($ro);
+
+        return new Request($invoker, $ro, Method::GET, []);
+    }
+
+    /** @return ProviderInterface<ResourceInterface> */
+    private function newProvider(FakeResource $resource): ProviderInterface
+    {
+        return new class ($resource) implements ProviderInterface {
+            public function __construct(
+                private readonly FakeResource $resource,
+            ) {
+            }
+
+            public function get(): FakeResource
+            {
+                return $this->resource;
+            }
+        };
+    }
+
+    private function newInvocation(ResourceObject $ro, ReflectionMethod $method): FakeMethodInvocation
+    {
+        return new FakeMethodInvocation($ro, $method, arguments: []);
     }
 }

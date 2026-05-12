@@ -20,25 +20,25 @@ echo "===========================\n";
 echo "8 embedded SQL resources\n";
 echo "Expected: Sync ~sequential, Swoole ~parallel execution\n\n";
 
-Coroutine\run(static function () use ($iterations): void {
-    // Sync execution (prod-hal-app context - no async module)
-    echo "Sync execution (prod-hal-app)...\n";
-    $syncApp = Injector::getInstance('prod-hal-app')->getInstance(AppInterface::class);
-    $syncResource = $syncApp->resource;
+// Sync execution (prod-hal-app context - no async module)
+echo "Sync execution (prod-hal-app)...\n";
+$syncApp = Injector::getInstance('prod-hal-app')->getInstance(AppInterface::class);
+$syncResource = $syncApp->resource;
 
-    $syncTimes = [];
-    for ($i = 0; $i < $iterations; $i++) {
-        $start = hrtime(true);
-        $response = $syncResource->get->uri('app://self/dashboard')->eager->request();
-        $view = (string) $response;
-        $elapsed = (hrtime(true) - $start) / 1_000_000;
-        $syncTimes[] = $elapsed;
-        printf("  Run %d: %.2f ms\n", $i + 1, $elapsed);
-    }
+$syncTimes = [];
+for ($i = 0; $i < $iterations; $i++) {
+    $start = hrtime(true);
+    $response = $syncResource->get->uri('app://self/dashboard')->eager->request();
+    $view = (string) $response;
+    $elapsed = (hrtime(true) - $start) / 1_000_000;
+    $syncTimes[] = $elapsed;
+    printf("  Run %d: %.2f ms\n", $i + 1, $elapsed);
+}
 
-    $syncAvg = array_sum($syncTimes) / count($syncTimes);
-    printf("  Average: %.2f ms\n\n", $syncAvg);
+$syncAvg = array_sum($syncTimes) / count($syncTimes);
+printf("  Average: %.2f ms\n\n", $syncAvg);
 
+Coroutine\run(static function () use ($iterations, $syncAvg): void {
     // Swoole execution (prod-swoole-hal-app context)
     echo "Swoole execution (prod-swoole-hal-app)...\n";
     $swooleApp = Injector::getInstance('prod-swoole-hal-app')->getInstance(AppInterface::class);

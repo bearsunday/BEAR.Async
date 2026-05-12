@@ -9,9 +9,13 @@ services:
       mysql:
         condition: service_healthy
     environment:
-      DB_DSN: "mysql:host=mysql;dbname=bear_async_demo"
-      DB_USER: root
-      DB_PASS: ""
+      - DB_DSN=mysql:host=mysql;dbname=bear_async_demo
+      - DB_USER=root
+      - DB_PASS=
+      - COMPOSER_AUTH
+      - GIT_CONFIG_COUNT=1
+      - GIT_CONFIG_KEY_0=safe.directory
+      - GIT_CONFIG_VALUE_0=/app
 
   mysql:
     image: mysql:8.0
