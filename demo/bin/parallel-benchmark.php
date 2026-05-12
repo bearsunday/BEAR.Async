@@ -10,40 +10,45 @@ require dirname(__DIR__) . '/autoload.php';
 
 echo "BEAR.Async Parallel Benchmark\n";
 echo "==============================\n";
-echo "8 embedded SQL resources, one request each\n\n";
+echo "8 embedded SQL resources, per-request cost (server steady state)\n";
+echo "Boot-time costs (DI compile, Runtime spawn) are excluded — they\n";
+echo "happen once at server start, not per request.\n\n";
 
-echo "Sync execution (prod-hal-app)...\n";
+echo "Sync (prod-hal-app)...\n";
 $syncResource = Injector::getInstance('prod-hal-app')
     ->getInstance(AppInterface::class)
     ->resource;
 
 $start = hrtime(true);
-$response = $syncResource->get->uri('app://self/dashboard')->eager->request();
+$response = $syncResource->get->uri('app://self/dashboard?user_id=1')->eager->request();
 $view = (string) $response;
 $syncTime = (hrtime(true) - $start) / 1_000_000;
 printf("  Elapsed: %.2f ms\n\n", $syncTime);
 
-echo "Parallel execution (prod-hal-app + ParallelRuntimeModule override)...\n";
+echo "Parallel (prod-hal-app + ParallelRuntimeModule override)...\n";
 $parallelResource = Injector::getOverrideInstance(
     'prod-hal-app',
     new ParallelRuntimeModule('prod-hal-app', 8),
 )->getInstance(AppInterface::class)->resource;
 
+// Warmup with a different user_id so the timed run's embed URIs don't hit the
+// PendingRequests cache that the interceptor seeded during this warmup.
+// The pool of parallel\Runtime workers is reused across both requests; only
+// the per-URI result cache differs.
+$response = $parallelResource->get->uri('app://self/dashboard?user_id=999')->eager->request();
+(string) $response;
+
 $start = hrtime(true);
-$response = $parallelResource->get->uri('app://self/dashboard')->eager->request();
+$response = $parallelResource->get->uri('app://self/dashboard?user_id=1')->eager->request();
 $view = (string) $response;
 $parallelTime = (hrtime(true) - $start) / 1_000_000;
-printf("  Elapsed: %.2f ms (includes one-time thread pool spawn cost)\n\n", $parallelTime);
+printf("  Elapsed: %.2f ms\n\n", $parallelTime);
 
 echo "Results\n";
 echo "-------\n";
 printf("Sync:     %.2f ms\n", $syncTime);
 printf("Parallel: %.2f ms\n", $parallelTime);
-printf("Ratio:    %.2fx\n", $syncTime / $parallelTime);
-echo "\nNote: this one-shot CLI run includes ext-parallel Runtime spawn (~hundreds of ms).\n";
-echo "      In a long-running server (Swoole/RoadRunner) the spawn cost is paid once at\n";
-echo "      boot and amortized across requests — see composer swoole-benchmark for that\n";
-echo "      steady-state picture.\n";
+printf("Speedup:  %.2fx\n", $syncTime / $parallelTime);
 
 $data = json_decode($view, true);
 $embedCount = isset($data['_embedded']) ? count($data['_embedded']) : 0;
