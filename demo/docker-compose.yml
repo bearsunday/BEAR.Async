@@ -1,3 +1,8 @@
+x-db-env: &db-env
+  DB_DSN: "mysql:host=mysql;dbname=demo"
+  DB_USER: "demo"
+  DB_PASS: "demo"
+
 services:
   parallel:
     build:
@@ -7,6 +12,11 @@ services:
       - ..:/workspace
     working_dir: /workspace/demo
     command: ["sleep", "infinity"]
+    environment:
+      <<: *db-env
+    depends_on:
+      mysql:
+        condition: service_healthy
 
   swoole:
     build:
@@ -17,9 +27,13 @@ services:
     working_dir: /workspace/demo
     command: ["sleep", "infinity"]
     environment:
+      <<: *db-env
       SWOOLE_HOST: "0.0.0.0"
     ports:
       - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
 
   mysql:
     image: mysql:8.0
@@ -30,9 +44,6 @@ services:
       MYSQL_PASSWORD: demo
     ports:
       - "3306:3306"
-    volumes:
-      - ./sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
-      - ./sql/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s

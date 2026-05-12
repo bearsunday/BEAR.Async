@@ -36,17 +36,19 @@ The demo ships with a multistage Dockerfile that builds two purpose-built
 images: one for ext-parallel (PHP 8.4 ZTS + ext-parallel) and one for
 ext-swoole (PHP 8.4 ZTS + ext-swoole). The two extensions are kept in
 separate images because their shutdown hooks conflict when loaded
-together. No host PHP setup is required.
+together. MySQL ships in the same compose project and the app
+services `depends_on` it. No host PHP or MySQL setup is required.
 
 ```bash
-docker compose up -d --wait parallel                       # build and start the parallel image
-docker compose exec parallel composer install              # installs deps and seeds the SQLite DB
+docker compose up -d --wait parallel                       # also brings MySQL up
+docker compose exec parallel composer install              # installs deps and seeds MySQL
 docker compose exec parallel composer app -- get 'app://self/dashboard?user_id=1'
 ```
 
-`composer install` runs `composer setup` automatically via
-`post-install-cmd`, which initializes the SQLite database under
-`var/db/`.
+`composer install` runs `composer setup` automatically, which drops
+and re-creates the `demo` schema in MySQL and loads `sql/schema.sql` +
+`sql/seed.sql` through PDO. The `parallel` service has `DB_DSN`,
+`DB_USER`, and `DB_PASS` preset to point at the bundled MySQL.
 
 ## Running the demo
 
@@ -88,11 +90,8 @@ docker compose exec parallel composer parallel-benchmark
 
 ### ext-swoole (Coroutines)
 
-`swoole-benchmark` requires MySQL (Swoole connection pooling does not
-support SQLite). See [MySQL benchmarks](#mysql-benchmarks) for the
-`env.json` setup, then:
-
 ```bash
+rm -rf var/tmp/prod-hal-app            # see "DI cache" note below
 docker compose exec swoole composer swoole-benchmark
 ```
 
@@ -108,43 +107,44 @@ The application's `AppModule` does not know about execution form. The entrypoint
 (`bin/*.php`) declares the runtime profile and overrides the appropriate
 bootstrap module on top of `AppModule`.
 
-## MySQL benchmarks
+## Database
 
-The default DB is SQLite. For benchmarks with realistic I/O latency,
-start the bundled MySQL service and point env.json at it:
+`docker-compose.yml` presets `DB_DSN=mysql:host=mysql;dbname=demo`
+together with `DB_USER=demo` / `DB_PASS=demo` on both app services, and
+the bundled MySQL 8.0 service runs on the compose network with a matching
+schema. `composer setup` (called automatically by `composer install`)
+reads those env vars, drops every table in the `demo` schema, and
+re-runs `sql/schema.sql` and `sql/seed.sql` through PDO — so you can
+re-seed at any time without recreating the MySQL volume.
+
+To override the defaults (for example to point at a remote MySQL or
+fall back to SQLite), drop an `env.json` next to `composer.json`:
 
 ```bash
-docker compose up -d --wait parallel swoole mysql
-
 cat > env.json << 'EOF'
 {
-    "DB_DSN": "mysql:host=mysql;dbname=demo",
-    "DB_USER": "demo",
-    "DB_PASS": "demo"
+    "DB_DSN": "sqlite:var/db/blog.sqlite",
+    "DB_USER": "",
+    "DB_PASS": ""
 }
 EOF
 
-rm -rf var/tmp/prod-hal-app var/tmp/prod-swoole-hal-app   # DI cache bakes in the old DSN
-docker compose exec parallel composer parallel-benchmark
-rm -rf var/tmp/prod-hal-app                               # same cache is reused across images
-docker compose exec swoole composer swoole-benchmark
+docker compose exec parallel composer setup    # re-seed against the new DSN
 ```
 
-The MySQL container loads `sql/schema.sql` and `sql/seed.sql` from
-`docker-entrypoint-initdb.d` on its first start; there is no separate
-re-seed step. To start over, `docker compose down -v mysql && docker
-compose up -d --wait mysql`.
+`bin/setup.php` knows the SQLite dialect too, so the SQLite path keeps
+working when you want a serverless run.
 
-The host is `mysql` (the compose service name), not `127.0.0.1`, because
-the connection happens inside the container network.
+### DI cache
 
-The `parallel` and `swoole` services share `var/tmp` through the
-bind mount, so the DI cache compiled by one image (for example with
-`ParallelRuntimeModule` baked into `prod-hal-app`) can be picked up
-by the other image and fail to load (the swoole image has no
-`parallel\Runtime`). The same caching also captures `DB_DSN` from
-`env.json` at compile time, so editing `env.json` requires clearing
-the affected subdirectory under `var/tmp/` before the next run.
+The `parallel` and `swoole` services share `var/tmp` through the bind
+mount and the DI cache bakes in both the runtime adapter (so
+`ParallelRuntimeModule` from the parallel image is incompatible with
+the swoole image's missing `parallel\Runtime`) and the `DB_DSN`
+resolved at compile time (so switching `env.json` reuses stale
+connection info). Drop the affected subdirectory under `var/tmp/`
+before the next run — it is rebuilt automatically. `composer setup`
+clears `var/tmp/*` for you.
 
 ## Commands
 
@@ -153,7 +153,7 @@ container that owns the matching extension. Use `composer run --list`
 from within the container to discover everything; the common ones are:
 
 ```bash
-docker compose exec parallel composer setup              # Initialize database
+docker compose exec parallel composer setup              # Re-seed MySQL
 docker compose exec parallel composer app                # Sync entrypoint (bin/app.php)
 docker compose exec parallel composer async              # ext-parallel entrypoint (bin/async.php)
 docker compose exec swoole   composer swoole             # ext-swoole HTTP server (bin/swoole.php)

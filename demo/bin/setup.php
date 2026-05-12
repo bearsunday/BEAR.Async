@@ -2,45 +2,60 @@
 
 declare(strict_types=1);
 
+use Koriym\EnvJson\EnvJson;
+
 chdir(dirname(__DIR__));
 passthru('rm -rf ./var/tmp/*');
 
-// Initialize SQLite database
-$dbDir = dirname(__DIR__) . '/var/db';
-if (! is_dir($dbDir)) {
-    mkdir($dbDir, 0755, true);
-}
+require dirname(__DIR__) . '/vendor/autoload.php';
 
-$dbPath = $dbDir . '/blog.sqlite';
+(new EnvJson())->load(dirname(__DIR__));
+
+$dsn  = getenv('DB_DSN')  ?: 'sqlite:' . dirname(__DIR__) . '/var/db/blog.sqlite';
+$user = getenv('DB_USER') ?: '';
+$pass = getenv('DB_PASS') ?: '';
+
 $sqlDir = dirname(__DIR__) . '/sql';
+$isSqlite = str_starts_with($dsn, 'sqlite:');
 
-// Remove existing database for clean setup
-if (file_exists($dbPath)) {
-    unlink($dbPath);
+echo "Initializing database ({$dsn})...\n";
+
+if ($isSqlite) {
+    $dbPath = substr($dsn, strlen('sqlite:'));
+    $dbDir = dirname($dbPath);
+    if (! is_dir($dbDir)) {
+        mkdir($dbDir, 0755, true);
+    }
+    if (file_exists($dbPath)) {
+        unlink($dbPath);
+    }
 }
 
-echo "Initializing database...\n";
-
-$pdo = new PDO('sqlite:' . $dbPath);
+$pdo = new PDO($dsn, $user, $pass);
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-// Load schema
 $schema = file_get_contents($sqlDir . '/schema.sql');
 if ($schema === false) {
     throw new RuntimeException('Failed to read schema.sql');
 }
 
-// Remove SQL comments
 $schema = preg_replace('/^--.*$/m', '', $schema);
-// Convert MySQL syntax to SQLite
-$schema = str_replace('AUTO_INCREMENT', 'AUTOINCREMENT', $schema);
-$schema = str_replace('INT PRIMARY KEY AUTOINCREMENT', 'INTEGER PRIMARY KEY AUTOINCREMENT', $schema);
-// Remove FOREIGN KEY constraints (with ON DELETE CASCADE etc.)
-$schema = preg_replace('/,\s*FOREIGN KEY\s*\([^)]+\)\s*REFERENCES\s*\w+\s*\([^)]+\)[^,)]*/', '', $schema);
-// Remove INDEX definitions
-$schema = preg_replace('/,\s*INDEX\s+\w+\s*\([^)]+\)/', '', $schema);
-$schema = str_replace('TIMESTAMP DEFAULT CURRENT_TIMESTAMP', 'DATETIME DEFAULT CURRENT_TIMESTAMP', $schema);
-$schema = str_replace('TIMESTAMP NULL', 'DATETIME NULL', $schema);
+
+if ($isSqlite) {
+    $schema = str_replace('AUTO_INCREMENT', 'AUTOINCREMENT', $schema);
+    $schema = str_replace('INT PRIMARY KEY AUTOINCREMENT', 'INTEGER PRIMARY KEY AUTOINCREMENT', $schema);
+    $schema = preg_replace('/,\s*FOREIGN KEY\s*\([^)]+\)\s*REFERENCES\s*\w+\s*\([^)]+\)[^,)]*/', '', $schema);
+    $schema = preg_replace('/,\s*INDEX\s+\w+\s*\([^)]+\)/', '', $schema);
+    $schema = str_replace('TIMESTAMP DEFAULT CURRENT_TIMESTAMP', 'DATETIME DEFAULT CURRENT_TIMESTAMP', $schema);
+    $schema = str_replace('TIMESTAMP NULL', 'DATETIME NULL', $schema);
+} else {
+    $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
+    $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($tables as $table) {
+        $pdo->exec("DROP TABLE IF EXISTS `{$table}`");
+    }
+    $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+}
 
 foreach (explode(';', $schema) as $statement) {
     $statement = trim($statement);
@@ -49,13 +64,11 @@ foreach (explode(';', $schema) as $statement) {
     }
 }
 
-// Load seed data
 $seed = file_get_contents($sqlDir . '/seed.sql');
 if ($seed === false) {
     throw new RuntimeException('Failed to read seed.sql');
 }
 
-// Remove SQL comments
 $seed = preg_replace('/^--.*$/m', '', $seed);
 foreach (explode(';', $seed) as $statement) {
     $statement = trim($statement);
@@ -64,4 +77,4 @@ foreach (explode(';', $seed) as $statement) {
     }
 }
 
-echo "Database initialized at: {$dbPath}\n";
+echo "Database initialized.\n";
