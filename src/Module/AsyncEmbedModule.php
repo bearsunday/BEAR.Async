@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace BEAR\Async\Module;
 
-use BEAR\Async\PendingRequests;
 use BEAR\Async\AsyncEmbedInterceptor;
-use BEAR\Resource\EmbedInterceptor;
+use BEAR\Async\PendingRequests;
 use BEAR\Resource\EmbedInterceptorInterface;
 use Override;
-use Ray\Aop\MethodInterceptor;
 use Ray\Di\AbstractModule;
 use Ray\Di\Scope;
 
@@ -53,11 +51,6 @@ final class AsyncEmbedModule extends AbstractModule
     {
         // PendingRequests must be singleton to collect all requests in one batch
         $this->bind(PendingRequests::class)->in(Scope::SINGLETON);
-
-        // Bind inner interceptor (the standard EmbedInterceptor)
-        $this->bind(MethodInterceptor::class)
-            ->annotatedWith('async.embed.inner')
-            ->to(EmbedInterceptor::class);
 
         // Replace EmbedInterceptorInterface with AsyncEmbedInterceptor
         $this->bind(EmbedInterceptorInterface::class)->to(AsyncEmbedInterceptor::class);

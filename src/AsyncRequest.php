@@ -9,6 +9,10 @@ use BEAR\Resource\RequestInterface;
 use BEAR\Resource\ResourceObject;
 use Override;
 
+use function json_decode;
+
+use const JSON_THROW_ON_ERROR;
+
 /**
  * Decorator for AbstractRequest that enables parallel execution
  *
@@ -56,6 +60,14 @@ final class AsyncRequest extends AbstractRequest
     public function __toString(): string
     {
         return $this->pendingRequests->getResult($this->toUri());
+    }
+
+    #[Override]
+    public function jsonSerialize(): mixed
+    {
+        $view = $this->pendingRequests->getResult($this->toUri());
+
+        return json_decode($view, true, 512, JSON_THROW_ON_ERROR);
     }
 
     #[Override]
