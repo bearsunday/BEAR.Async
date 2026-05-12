@@ -30,6 +30,11 @@ return static function (
     array $server,
     int|null $poolSize = null,
 ): int {
+    $autoload = $appDir . '/vendor/autoload.php';
+    if (is_file($autoload)) {
+        putenv('BEAR_ASYNC_AUTOLOAD=' . $autoload);
+    }
+
     $injector = Injector::getOverrideInstance(
         $name,
         $context,
