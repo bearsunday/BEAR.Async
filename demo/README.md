@@ -102,7 +102,7 @@ bootstrap module on top of `AppModule`.
 For MySQL benchmarks with realistic I/O latency:
 
 ```bash
-docker compose up -d --wait    # Start MySQL container and wait until it accepts connections
+composer docker:up         # Start MySQL container and wait until it accepts connections
 
 # Create env.json for MySQL
 cat > env.json << 'EOF'
@@ -116,7 +116,7 @@ EOF
 composer parallel-benchmark
 composer swoole-benchmark
 
-docker compose down            # Stop MySQL when done
+composer docker:down       # Stop MySQL when done
 ```
 
 ## Commands
@@ -134,6 +134,8 @@ composer swoole-benchmark   # Run ext-swoole benchmark
 composer xprofile           # Profile dashboard (sync) with Xdebug
 composer xprofile-parallel  # Profile dashboard (parallel) with Xdebug
 composer xprofile-swoole    # Profile dashboard (swoole) with Xdebug
+composer docker:up          # Start MySQL container and wait until ready
+composer docker:down        # Stop MySQL container
 composer test               # Run unit tests
 composer tests              # Run all quality checks
 composer cs-fix             # Fix coding standards
