@@ -124,22 +124,27 @@ cat > env.json << 'EOF'
 }
 EOF
 
-docker compose exec parallel composer setup     # re-seed against MySQL
+rm -rf var/tmp/prod-hal-app var/tmp/prod-swoole-hal-app   # DI cache bakes in the old DSN
 docker compose exec parallel composer parallel-benchmark
-rm -rf demo/var/tmp/prod-hal-app                # DI cache leaks across images; see below
+rm -rf var/tmp/prod-hal-app                               # same cache is reused across images
 docker compose exec swoole composer swoole-benchmark
 ```
 
-Note the host is `mysql` (the compose service name), not `127.0.0.1`,
-because the connection happens inside the container network.
+The MySQL container loads `sql/schema.sql` and `sql/seed.sql` from
+`docker-entrypoint-initdb.d` on its first start; there is no separate
+re-seed step. To start over, `docker compose down -v mysql && docker
+compose up -d --wait mysql`.
+
+The host is `mysql` (the compose service name), not `127.0.0.1`, because
+the connection happens inside the container network.
 
 The `parallel` and `swoole` services share `var/tmp` through the
 bind mount, so the DI cache compiled by one image (for example with
 `ParallelRuntimeModule` baked into `prod-hal-app`) can be picked up
 by the other image and fail to load (the swoole image has no
-`parallel\Runtime`). Removing the matching subdirectory under
-`var/tmp/` before switching images is enough — it is rebuilt on next
-run.
+`parallel\Runtime`). The same caching also captures `DB_DSN` from
+`env.json` at compile time, so editing `env.json` requires clearing
+the affected subdirectory under `var/tmp/` before the next run.
 
 ## Commands
 

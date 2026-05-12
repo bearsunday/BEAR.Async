@@ -42,6 +42,10 @@
             "@setup",
             "@composer bin all install --ansi"
         ],
+        "post-update-cmd": [
+            "@setup",
+            "@composer bin all install --ansi"
+        ],
         "setup": "php bin/setup.php",
         "compile": "./vendor/bin/bear.compile 'BEAR\\AsyncDemo' prod-app ./",
         "parallel-benchmark": "php bin/parallel-benchmark.php",
