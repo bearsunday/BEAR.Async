@@ -46,10 +46,7 @@
         "parallel-benchmark": "php bin/parallel-benchmark.php",
         "swoole-benchmark": "php bin/swoole-benchmark.php",
         "scenario-benchmark": "php bin/scenario-benchmark.php",
-        "docker:up": [
-            "docker compose up -d",
-            "docker compose exec mysql mysqladmin ping -h localhost --wait"
-        ],
+        "docker:up": "docker compose up -d --wait",
         "docker:down": "docker compose down",
         "test": "./vendor/bin/phpunit",
         "coverage": "php -dzend_extension=xdebug.so -dxdebug.mode=coverage ./vendor/bin/phpunit --coverage-text --coverage-html=build/coverage",
