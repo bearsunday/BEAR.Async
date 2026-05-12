@@ -7,13 +7,17 @@
         {
             "type": "path",
             "url": "../"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/bearsunday/BEAR.Resource"
         }
     ],
     "require": {
         "php": "^8.2.0",
         "koriym/env-json": "^1.0",
         "bear/async": "@dev",
-        "bear/resource": "^1.31",
+        "bear/resource": "dev-hal-renderer-string-cast as 1.31.99",
         "bear/package": "^1.14",
         "bear/sunday": "^1.6",
         "ray/aop": "^2.12",
