@@ -38,6 +38,35 @@ composer install
 
 `composer install` runs `composer setup` automatically via `post-install-cmd`, which initializes the SQLite database under `var/db/`.
 
+## Running the demo
+
+Each entrypoint serves the same resource graph; only the execution form
+differs. Use `--` to forward the method and URI through composer.
+
+### Sync (baseline)
+
+```bash
+composer app -- get 'app://self/dashboard?user_id=1'
+```
+
+### ext-parallel (thread pool)
+
+```bash
+composer async -- get 'app://self/dashboard?user_id=1'
+```
+
+Requires PHP with ext-parallel (ZTS build).
+
+### ext-swoole (coroutines)
+
+```bash
+composer swoole
+# In another terminal:
+curl 'http://127.0.0.1:8080/dashboard?user_id=1'
+```
+
+Requires PHP with ext-swoole.
+
 ## Benchmarks
 
 ### ext-parallel (Thread Pool)
