@@ -1,4 +1,13 @@
 services:
+  app:
+    build: .
+    volumes:
+      - ..:/workspace
+    working_dir: /workspace/demo
+    command: ["sleep", "infinity"]
+    ports:
+      - "8080:8080"
+
   mysql:
     image: mysql:8.0
     environment:
