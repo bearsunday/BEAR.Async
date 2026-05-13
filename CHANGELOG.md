@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.3.0 - 2026-05-13
+
+### Fixed
+
+- `AsyncRequest` now extends `AbstractRequest` so `HalRenderer` can recognize and resolve embedded async requests during JSON serialization (#19).
+- Async embeds are batched during JSON serialization to avoid serial execution at render time.
+- ext-parallel runtimes are released after each batch and shut down gracefully; the worker resource cache is reset before closing runtimes.
+
+### Added
+
+- `DeferredRequest` — defers `ResourceObject` construction until the embedded request is actually invoked. Avoids reserving Swoole PDO pool connections at embed wiring time.
+- `PdoProxyExtractor` (internal) — extracts the wrapped `PDO` from Swoole's `PDOProxy` via a cached `ReflectionProperty`. Shared by `PooledPdoProvider` and `PooledExtendedPdoProvider`.
+- `Exception\PdoProxyExtractionException` — surfaces Swoole `PDOProxy` reflection failures as a domain exception instead of a raw `ReflectionException`.
+- Demo: Docker-based dev environment with separate images for ext-parallel and ext-swoole.
+- Demo: steady-state HTTP benchmark harness (`bin/parallel-server.php`, `bin/steady-state-benchmark.sh`, `bin/steady-state-matrix.sh`) for measuring warm per-request cost instead of cold one-shot spawn.
+- Demo: "When to choose parallel execution" guidance in `demo/README.md` and `docs/benchmark-results.md`.
+
+### Changed
+
+- `PooledPdoProvider` / `PooledExtendedPdoProvider` are now coroutine-local: a single `PDO` is shared within a coroutine across both providers, returned to the pool exactly once via `Coroutine::defer()`.
+- `composer.json` `require`: `bear/resource` bumped from `^1.31` to `^1.32` (needed for async embed resolution in HAL serialization).
+- Demo default database backend switched from SQLite to MySQL (connection pooling requires a real RDBMS).
+
 ## 0.2.0 - 2026-05-11
 
 ### Changed
