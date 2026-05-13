@@ -87,20 +87,3 @@ worker's own `ResourceInterface` via plain `BEAR\Package\Injector::getInstance`
 
 DI qualifier attributes live in `src/Qualifier/`: `Context`, `PoolSize`.
 Application name and directory are read from the injected `AbstractAppMeta`.
-
-## Release workflow
-
-When the user explicitly asks for a release ("X.Y.Z としてリリースしてください"),
-the following operations are **pre-authorized** for this project — do not ask
-again per step:
-
-- Create a `release-X.Y.Z` branch.
-- Stamp a `CHANGELOG.md` entry following the existing format.
-- `git push` the release branch to `upstream`.
-- `gh pr create` for the release branch.
-- After the user merges the release PR: `git tag -a X.Y.Z` + `git push upstream X.Y.Z` + `gh release create X.Y.Z` with the CHANGELOG entry as the body.
-
-Still NOT authorized even during a release:
-
-- `gh pr merge` — release PRs are merged by the user.
-- Force push, history rewrite, deleting refs.
