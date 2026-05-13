@@ -33,9 +33,13 @@ final class SwooleModule extends AbstractModule
 
         // Connection pool for coroutine-safe database access
         // PdoPoolModule now binds both PDO and ExtendedPdoInterface
-        $dsn = getenv('DB_DSN') ?: 'mysql:host=127.0.0.1;dbname=demo';
-        $user = getenv('DB_USER') ?: 'demo';
-        $pass = getenv('DB_PASS') ?: 'demo';
+        $dsn = getenv('DB_DSN');
+        $user = getenv('DB_USER');
+        $pass = getenv('DB_PASS');
+
+        $dsn = $dsn === false || $dsn === '' ? 'mysql:host=127.0.0.1;dbname=demo' : $dsn;
+        $user = $user === false || $user === '' ? 'demo' : $user;
+        $pass = $pass === false ? 'demo' : $pass;
 
         $poolSize = (int) (getenv('PDO_POOL_SIZE') ?: 64);
         if ($poolSize < 1) {
