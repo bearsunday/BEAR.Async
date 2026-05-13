@@ -7,9 +7,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libssl-dev \
         libsqlite3-dev \
         libbrotli-dev \
+        wrk \
     && rm -rf /var/lib/apt/lists/*
 
-RUN docker-php-ext-install pdo pdo_mysql pdo_sqlite zip
+RUN docker-php-ext-install pcntl pdo pdo_mysql pdo_sqlite zip
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 

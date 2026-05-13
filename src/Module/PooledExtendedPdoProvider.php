@@ -7,13 +7,16 @@ namespace BEAR\Async\Module;
 use Aura\Sql\DecoratedPdo;
 use Aura\Sql\ExtendedPdoInterface;
 use BEAR\Async\Exception\NotInCoroutineException;
+use BEAR\Async\Exception\PdoProxyExtractionException;
 use BEAR\Async\Exception\PoolTimeoutException;
+use BEAR\Async\PdoProxyExtractor;
 use PDO;
 use Ray\Di\ProviderInterface;
-use ReflectionClass;
 use Swoole\Coroutine;
 use Swoole\Database\PDOPool;
 use Swoole\Database\PDOProxy;
+
+use function assert;
 
 /**
  * Provider that supplies ExtendedPdoInterface instances from the connection pool
@@ -28,6 +31,10 @@ use Swoole\Database\PDOProxy;
  */
 final class PooledExtendedPdoProvider implements ProviderInterface
 {
+    private const CONTEXT_PROXY = 'bear.async.pdo_pool.proxy';
+    private const CONTEXT_PDO = 'bear.async.pdo_pool.pdo';
+    private const CONTEXT_EXTENDED_PDO = 'bear.async.pdo_pool.extended_pdo';
+
     public function __construct(
         private readonly PDOPool $pool,
     ) {
@@ -39,8 +46,9 @@ final class PooledExtendedPdoProvider implements ProviderInterface
      * The connection is automatically returned to the pool when
      * the coroutine completes via defer().
      *
-     * @throws NotInCoroutineException if called outside a Swoole coroutine context
-     * @throws PoolTimeoutException    if timeout occurs while waiting for a connection
+     * @throws NotInCoroutineException     if called outside a Swoole coroutine context
+     * @throws PoolTimeoutException        if timeout occurs while waiting for a connection
+     * @throws PdoProxyExtractionException if the underlying PDO cannot be read from the proxy
      */
     public function get(): ExtendedPdoInterface
     {
@@ -48,33 +56,38 @@ final class PooledExtendedPdoProvider implements ProviderInterface
             throw new NotInCoroutineException();
         }
 
-        $proxy = $this->pool->get();
-        if ($proxy === false) {
-            throw new PoolTimeoutException();
+        /** @var \ArrayObject<string, mixed> $context */
+        $context = Coroutine::getContext();
+        $extendedPdo = $context[self::CONTEXT_EXTENDED_PDO] ?? null;
+        if ($extendedPdo instanceof ExtendedPdoInterface) {
+            return $extendedPdo;
         }
 
-        Coroutine::defer(function () use ($proxy): void {
-            $this->pool->put($proxy);
-        });
+        $pdo = $context[self::CONTEXT_PDO] ?? null;
+        if (! $pdo instanceof PDO) {
+            $proxy = $this->pool->get();
+            if ($proxy === false) {
+                throw new PoolTimeoutException();
+            }
 
-        // Extract the actual PDO from PDOProxy for DecoratedPdo compatibility.
-        // PDOProxy uses a private `__object` property to hold the real PDO.
-        // This is Swoole's internal implementation detail.
-        // @see \Swoole\Database\PDOProxy::$__object
-        $pdo = $this->extractPdo($proxy);
+            assert($proxy instanceof PDOProxy);
+            $context[self::CONTEXT_PROXY] = $proxy;
+            $pdo = PdoProxyExtractor::extract($proxy);
+            $context[self::CONTEXT_PDO] = $pdo;
 
-        return new DecoratedPdo($pdo);
-    }
+            Coroutine::defer(function () use ($context, $proxy): void {
+                unset(
+                    $context[self::CONTEXT_PROXY],
+                    $context[self::CONTEXT_PDO],
+                    $context[self::CONTEXT_EXTENDED_PDO],
+                );
+                $this->pool->put($proxy);
+            });
+        }
 
-    /**
-     * Extract the actual PDO instance from a PDOProxy
-     */
-    private function extractPdo(PDOProxy $proxy): PDO
-    {
-        $reflection = new ReflectionClass($proxy);
-        $property = $reflection->getProperty('__object');
+        $context[self::CONTEXT_EXTENDED_PDO] = new DecoratedPdo($pdo);
 
-        /** @var PDO */
-        return $property->getValue($proxy);
+        /** @var ExtendedPdoInterface */
+        return $context[self::CONTEXT_EXTENDED_PDO];
     }
 }

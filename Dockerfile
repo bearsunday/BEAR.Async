@@ -7,7 +7,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libzip-dev \
     libcurl4-openssl-dev \
     libssl-dev \
-    && docker-php-ext-install zip pdo pdo_mysql sockets \
+    wrk \
+    && docker-php-ext-install pcntl zip pdo pdo_mysql sockets \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install parallel extension

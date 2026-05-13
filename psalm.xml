@@ -42,11 +42,6 @@
                 <file name="src/RedisPoolProvider.php"/>
             </errorLevel>
         </MixedMethodCall>
-        <MixedArgument>
-            <errorLevel type="suppress">
-                <file name="src/Module/PooledExtendedPdoProvider.php"/>
-            </errorLevel>
-        </MixedArgument>
         <MixedAssignment>
             <errorLevel type="suppress">
                 <directory name="src/Adapter"/>

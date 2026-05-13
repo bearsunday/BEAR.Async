@@ -46,4 +46,4 @@ jobs:
         run: composer bin tools require --dev phpstan/phpstan
 
       - name: Run PHPStan
-        run: ./vendor/bin/phpstan analyse --error-format=github --no-progress
+        run: ./vendor/bin/phpstan analyse --error-format=github --no-progress --memory-limit=512M

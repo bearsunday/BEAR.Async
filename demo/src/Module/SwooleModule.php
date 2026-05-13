@@ -14,7 +14,7 @@ use function getenv;
 /**
  * Swoole context module
  *
- * Install this module by using the "swoole" context (e.g., "prod-swoole-hal-app")
+ * Install this module by using the "swoole" context (e.g., "prod-swoole-hal-api-app")
  *
  * This module enables parallel execution of #[Embed] resources using
  * Swoole coroutines with connection pooling.
@@ -34,10 +34,15 @@ final class SwooleModule extends AbstractModule
         // Connection pool for coroutine-safe database access
         // PdoPoolModule now binds both PDO and ExtendedPdoInterface
         $dsn = getenv('DB_DSN') ?: 'mysql:host=127.0.0.1;dbname=demo';
-        $user = getenv('DB_USER') ?: 'root';
-        $pass = getenv('DB_PASS') ?: '';
+        $user = getenv('DB_USER') ?: 'demo';
+        $pass = getenv('DB_PASS') ?: 'demo';
 
-        $this->install(new PdoPoolModule($dsn, $user, $pass, 64));
+        $poolSize = (int) (getenv('PDO_POOL_SIZE') ?: 64);
+        if ($poolSize < 1) {
+            $poolSize = 64;
+        }
+
+        $this->install(new PdoPoolModule($dsn, $user, $pass, $poolSize));
 
         // DbQueryInterceptor must NOT be singleton in Swoole context
         // Each coroutine needs its own interceptor with its own database connection

@@ -82,18 +82,78 @@ curl 'http://127.0.0.1:8080/dashboard?user_id=1'
 
 ## Benchmarks
 
-### ext-parallel (Thread Pool)
+The CLI benchmark scripts are cold one-shot reference values. They include
+startup work such as DI lookup and, for ext-parallel, one-time
+`parallel\Runtime` spawn. Use the steady-state HTTP benchmarks when you want
+per-request numbers after the server and worker pool are already running.
+
+### Cold one-shot CLI
 
 ```bash
 docker compose exec parallel composer parallel-benchmark
-```
-
-### ext-swoole (Coroutines)
-
-```bash
-rm -rf var/tmp/prod-hal-app            # see "DI cache" note below
 docker compose exec swoole composer swoole-benchmark
 ```
+
+### Steady-state HTTP with wrk
+
+The demo images include `wrk`. The benchmark command starts the matching
+HTTP server, waits for it to become ready, runs `wrk`, then stops the server.
+The default request is `/dashboard?user_id=1`; override it with
+`BENCH_PATH` if needed. It sends one warmup request before `wrk` so
+worker pools and connection pools are initialized outside the measured run.
+The demo Swoole entrypoint also pre-fills `PDOPool` before accepting HTTP
+requests so PDO connections are created serially at server startup rather than
+concurrently during the first embedded-resource batch.
+If Xdebug is active, Swoole entrypoints fail fast before starting coroutines;
+use a PHP runtime without Xdebug or set `XDEBUG_MODE=off`.
+
+```bash
+docker compose exec parallel composer steady-state-parallel
+docker compose exec swoole composer steady-state-swoole
+```
+
+The bundled ext-parallel HTTP server is a multi-process benchmark harness.
+Each HTTP worker process keeps its own long-running `parallel\Runtime` pool,
+so `WRK_CONNECTIONS` can exercise concurrent HTTP requests while keeping
+thread-pool startup outside the measured run. Control the HTTP worker count
+with `BENCH_PARALLEL_WORKERS` (default: `WRK_CONNECTIONS`).
+
+Common tuning knobs:
+
+```bash
+docker compose exec -e WRK_DURATION=30s -e WRK_CONNECTIONS=1 parallel composer steady-state-parallel
+docker compose exec -e WRK_DURATION=30s -e WRK_CONNECTIONS=16 -e WRK_THREADS=2 parallel composer steady-state-parallel
+docker compose exec -e WRK_DURATION=30s -e WRK_CONNECTIONS=16 -e WRK_THREADS=2 swoole composer steady-state-swoole
+docker compose exec -e BENCH_WARMUP_REQUESTS=3 parallel composer steady-state-parallel
+```
+
+To run the repeatable matrix used by the benchmark documentation, run this
+from the host in the `demo/` directory:
+
+```bash
+composer steady-state-matrix
+```
+
+It runs three 30-second `wrk` measurements per valid connection/thread
+combination, records median req/s and latency, and writes TSV plus Markdown
+summaries under `build/`.
+
+For Swoole, `PDO_POOL_SIZE` is still configurable, but the default pool is
+enough for the demo benchmark. Embedded resources are instantiated inside the
+batched coroutine execution path so the pool applies backpressure instead of
+requiring one connection per potential embedded request up front. Set
+`PDO_POOL_PREFILL=0` only when you specifically want to measure lazy pool
+connection creation.
+
+If you already have the server running, set `BENCH_USE_EXISTING=1` and the
+script will only run `wrk`:
+
+```bash
+docker compose exec -e BENCH_USE_EXISTING=1 swoole composer steady-state-swoole
+```
+
+On a host machine with multiple PHP builds, set `SWOOLE_PHP` or `PARALLEL_PHP`
+to the binary that has the matching extension loaded.
 
 ## Contexts and entrypoints
 
@@ -101,7 +161,8 @@ docker compose exec swoole composer swoole-benchmark
 |---|---|---|---|---|
 | `composer app` | `bin/app.php` | `cli-hal-api-app` | Sync (baseline) | `parallel` |
 | `composer async` | `bin/async.php` | `cli-hal-api-app` | ext-parallel threads | `parallel` |
-| `composer swoole` | `bin/swoole.php` | `prod-hal-api-app` | ext-swoole coroutines | `swoole` |
+| `composer swoole` | `bin/swoole.php` | `prod-swoole-hal-api-app` | ext-swoole coroutines | `swoole` |
+| `composer parallel-server` | `bin/parallel-server.php` | `prod-hal-app` | ext-parallel HTTP benchmark harness | `parallel` |
 
 The application's `AppModule` does not know about execution form. The entrypoint
 (`bin/*.php`) declares the runtime profile and overrides the appropriate
@@ -112,7 +173,10 @@ bootstrap module on top of `AppModule`.
 `docker-compose.yml` presets `DB_DSN=mysql:host=mysql;dbname=demo`
 together with `DB_USER=demo` / `DB_PASS=demo` on both app services, and
 the bundled MySQL 8.0 service runs on the compose network with a matching
-schema. `composer setup` (called automatically by `composer install`)
+schema. On a host machine, `env.dist.json` and the steady-state benchmark
+scripts default to `mysql:host=127.0.0.1;dbname=demo` with the same
+`demo` / `demo` credentials, which matches the compose port mapping.
+`composer setup` (called automatically by `composer install`)
 reads those env vars, drops every table in the `demo` schema, and
 re-runs `sql/schema.sql` and `sql/seed.sql` through PDO — so you can
 re-seed at any time without recreating the MySQL volume.
@@ -141,10 +205,10 @@ The `parallel` and `swoole` services share `var/tmp` through the bind
 mount and the DI cache bakes in both the runtime adapter (so
 `ParallelRuntimeModule` from the parallel image is incompatible with
 the swoole image's missing `parallel\Runtime`) and the `DB_DSN`
-resolved at compile time (so switching `env.json` reuses stale
-connection info). Drop the affected subdirectory under `var/tmp/`
-before the next run — it is rebuilt automatically. `composer setup`
-clears `var/tmp/*` for you.
+resolved at compile time (so switching between Docker and host
+execution can otherwise reuse stale connection info). The steady-state
+benchmark script clears the target context cache before starting its
+temporary server. `composer setup` clears `var/tmp/*` for you.
 
 ## Commands
 
@@ -159,9 +223,18 @@ docker compose exec parallel composer async              # ext-parallel entrypoi
 docker compose exec swoole   composer swoole             # ext-swoole HTTP server (bin/swoole.php)
 docker compose exec parallel composer parallel-benchmark # ext-parallel benchmark
 docker compose exec swoole   composer swoole-benchmark   # ext-swoole benchmark
-docker compose exec parallel composer test               # Run unit tests
-docker compose exec parallel composer tests              # Run all quality checks
-docker compose exec parallel composer cs-fix             # Fix coding standards
+docker compose exec parallel composer steady-state-parallel # wrk benchmark against ext-parallel server
+docker compose exec swoole   composer steady-state-swoole   # wrk benchmark against Swoole server
+```
+
+Library quality checks run from the repository root, not from `demo/`:
+
+```bash
+cd ..
+composer cs
+composer test
+./vendor/bin/psalm --no-progress
+php -d memory_limit=512M ./vendor/bin/phpstan analyse -c phpstan.neon --no-progress
 ```
 
 If you prefer to stay inside the container, `docker compose exec

@@ -45,7 +45,7 @@
         "tests": ["@cs", "@test", "@sa"],
         "cs": "phpcs --standard=phpcs.xml src tests",
         "cs-fix": "phpcbf src tests",
-        "sa": ["psalm --no-progress", "phpstan analyse -c phpstan.neon --no-progress"],
+        "sa": ["psalm --no-progress", "phpstan analyse -c phpstan.neon --no-progress --memory-limit=512M"],
         "metrics": "phpmetrics --report-html=build/metrics src"
     },
     "config": {
