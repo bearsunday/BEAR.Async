@@ -66,6 +66,71 @@ uses its actual long-running HTTP server.
 
 You can verify the cold CLI benchmark path in our [CI benchmark workflow](https://github.com/bearsunday/BEAR.Async/actions/workflows/async-benchmark.yml), which runs on every push and pull request.
 
+## When to Choose Parallel
+
+For a read-only resource graph that embeds multiple independent GET resources,
+parallel execution should be the first candidate when the runtime supports it
+and the downstream database or API capacity is sized for the extra concurrency.
+This is the core design point of BEAR.Async: application code declares the
+resource graph with `#[Embed]`, and the Linker implementation decides whether
+the graph is resolved sequentially, with Swoole coroutines, or with
+ext-parallel workers.
+
+### Preconditions
+
+- Embedded resources are read-only GET resources with no ordering dependency.
+- The runtime extension is available: `ext-swoole` or `ext-parallel`.
+- Downstream capacity is sized for internal parallelism, not just HTTP request
+  concurrency.
+- Swoole uses a coroutine-aware connection pool. If the goal is to avoid
+  queueing, size `PDO_POOL_SIZE` for roughly `embed_count * request_concurrency`.
+  A smaller pool is still valid when you intentionally want backpressure.
+- ext-parallel uses a `parallel\Runtime` pool per resident HTTP worker process.
+  To run all embeds in one dashboard request concurrently, set
+  `PARALLEL_POOL_SIZE >= embed_count` for each worker. Database connections
+  grow with the number of HTTP workers and their runtime pools.
+- ext-parallel steady-state measurements require a process that keeps the
+  runtime pool warm, such as the bundled benchmark HTTP server or another
+  resident worker model. One-shot CLI runs include Runtime startup cost and are
+  cold-start references, not steady-state per-request measurements.
+
+### Adapter Guide
+
+| Situation | Recommended adapter |
+|---|---|
+| Swoole HTTP server is acceptable and high throughput is needed | Swoole adapter |
+| A resident process can keep ext-parallel runtimes warm | ext-parallel adapter |
+| Extension support is unavailable or portability is the priority | Sync adapter |
+
+### Cases with Little or No Gain
+
+- The downstream database or API cannot absorb the added concurrency because
+  of pool limits, saturation, or rate limits.
+- Each embedded resource is already extremely fast; this demo does not measure
+  the boundary where fixed runtime overhead dominates.
+- Embedded resources have real ordering dependencies or share mutable
+  request-local state.
+- One-shot CLI and cron-style jobs can still use the adapters, but they should
+  be read as cold-start behavior. In this demo the ext-parallel one-shot CLI
+  run is about 64 ms slower than Sync because Runtime startup is included.
+
+## Cold One-Shot CLI Results
+
+These numbers are reference values for a single CLI invocation of the dashboard
+resource with 8 embeds. They include startup work such as DI lookup and, for
+ext-parallel, Runtime spawn.
+
+| Profile | Runtime | Time | vs profile Sync |
+|---|---|---:|---:|
+| ext-parallel CLI | Sync | 137.97 ms | baseline |
+| ext-parallel CLI | ext-parallel | 201.87 ms | +63.90 ms (0.68x) |
+| Swoole CLI | Sync | 140.45 ms | baseline |
+| Swoole CLI | Swoole | 47.64 ms | -92.81 ms (2.95x) |
+
+The ext-parallel cold result should not be used to judge steady-state
+per-request performance. It is useful for understanding one-shot behavior and
+for keeping the benchmark honest about startup cost.
+
 ## Steady-State HTTP Results
 
 The following numbers were measured locally with Docker Compose on
@@ -159,8 +224,8 @@ steady-state per-request latency.
 
 Actual speedup varies based on:
 
-- **Thread/Coroutine overhead**: Initial setup cost (~10-20ms)
-- **Database connection pool**: Connection acquisition time
+- **Runtime startup**: cold one-shot CLI includes DI and runtime setup work
+- **Database connection pool**: pool size, queueing, and connection creation
 - **CPU cores**: ext-parallel benefits from multiple cores
 - **I/O vs CPU bound**: Parallel execution excels for I/O-bound operations
 
@@ -171,15 +236,17 @@ Actual speedup varies based on:
 | Execution Model | Thread pool | Coroutines |
 | Memory Isolation | Isolated per thread | Shared (requires pooling) |
 | PDO Handling | Each thread gets own PDO | Must use connection pool |
-| Best For | CPU-bound + I/O mixed | Pure I/O-bound operations |
-| Use Case | PHP-FPM/Apache | Swoole HTTP Server |
+| Best For | Resident worker pools with isolated runtimes | Long-running coroutine HTTP server |
+| Use Case | warmed worker process or benchmark harness | Swoole HTTP Server |
 
 ### Module Selection Guide
 
 #### Use the `bin/async.php` entrypoint (ext-parallel) when:
-- Running under PHP-FPM or Apache
+- Running a CLI entrypoint that should resolve embeds through ext-parallel
 - Each request requires isolated memory
 - No special PDO connection management needed
+- For steady-state performance evaluation, use a resident process that keeps
+  the `parallel\Runtime` pool warm
 
 #### Use AsyncSwooleModule when:
 - Running Swoole HTTP Server

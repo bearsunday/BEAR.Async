@@ -22,13 +22,22 @@ The `Dashboard` resource embeds 8 independent SQL-based resources:
 public function onGet(int $user_id = 1): static
 ```
 
-### Expected Results
+### When to choose parallel execution
 
-| Mode | Execution | Expected Speedup |
-|------|-----------|------------------|
-| Sync | Sequential (8 queries one by one) | 1.0x (baseline) |
-| ext-parallel | Thread pool (8 queries in parallel) | 2-4x |
-| ext-swoole | Coroutines (8 queries in parallel) | 2-4x |
+For a read-only resource graph that embeds multiple independent GET resources,
+parallel execution should be the first candidate when the runtime extension is
+available and the downstream database or API capacity is sized for the extra
+concurrency. The application resource code stays the same; only the Linker
+implementation changes.
+
+Use Sync as the portable baseline and fallback. Use Swoole when the application
+can run on a Swoole HTTP server. Use ext-parallel when you can keep a runtime
+pool warm in a resident process or benchmark harness. One-shot CLI runs are
+valid cold-start references, but they are not a good way to evaluate
+ext-parallel steady-state per-request performance.
+
+See [Benchmark Results](../docs/benchmark-results.md) for measured numbers and
+capacity notes.
 
 ## Quick start (Docker)
 
