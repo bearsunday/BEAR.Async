@@ -85,8 +85,6 @@ final readonly class AsyncEmbedInterceptor implements EmbedInterceptorInterface
      */
     private function embedResource(array $embeds, ResourceObject $ro, array $query): void
     {
-        $resource = $this->resourceProvider->get();
-
         foreach ($embeds as $embed) {
             if (! $embed instanceof Embed) {
                 continue;
@@ -95,11 +93,10 @@ final readonly class AsyncEmbedInterceptor implements EmbedInterceptorInterface
             try {
                 $templateUri = $this->getFullUri($embed->src, $ro);
                 $uri = uri_template($templateUri, $query);
-                $request = $resource->newRequest(Method::GET, $uri);
-                assert($request instanceof AbstractRequest);
                 $this->prepareBody($ro, $embed);
 
                 if ($embed->rel === self::SELF_LINK) {
+                    $request = $this->resourceProvider->get()->newRequest(Method::GET, $uri);
                     assert($request instanceof Request);
                     $this->linkSelf($request, $ro);
 
@@ -108,7 +105,10 @@ final readonly class AsyncEmbedInterceptor implements EmbedInterceptorInterface
 
                 assert(is_array($ro->body));
 
-                $ro->body[$embed->rel] = new AsyncRequest(clone $request, $this->allRequests);
+                $ro->body[$embed->rel] = new AsyncRequest(
+                    new DeferredRequest($this->resourceProvider, Method::GET, $uri),
+                    $this->allRequests,
+                );
             } catch (BadRequestException $e) {
                 throw new EmbedException($embed->src, 500, $e);
             }

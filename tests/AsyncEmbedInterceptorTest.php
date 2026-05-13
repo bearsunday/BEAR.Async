@@ -36,11 +36,13 @@ class AsyncEmbedInterceptorTest extends TestCase
 
         $result = $interceptor->invoke($invocation);
 
-        $this->assertSame([['method' => Method::GET, 'uri' => 'app://self/embedded', 'query' => []]], $resource->newRequests);
+        $this->assertSame([], $resource->newRequests);
         $this->assertSame(1, $invocation->proceedCount);
         $this->assertInstanceOf(ResourceObject::class, $result);
         $this->assertIsArray($result->body);
         $this->assertInstanceOf(AsyncRequest::class, $result->body['embedded']);
+        (string) $result->body['embedded'];
+        $this->assertSame([['method' => Method::GET, 'uri' => 'app://self/embedded', 'query' => []]], $resource->newRequests);
     }
 
     public function testDoesNotModifyNonArrayBody(): void

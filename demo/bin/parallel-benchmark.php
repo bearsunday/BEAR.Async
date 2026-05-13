@@ -8,79 +8,43 @@ use BEAR\Sunday\Extension\Application\AppInterface;
 
 require dirname(__DIR__) . '/autoload.php';
 
-$iterations = (int) ($argv[1] ?? 3);
-
 echo "BEAR.Async Parallel Benchmark\n";
 echo "==============================\n";
-echo "8 embedded SQL resources\n";
-echo "Expected: Sync ~sequential, Parallel ~parallel execution\n\n";
+echo "8 embedded SQL resources, cold one-shot reference\n";
+echo "This includes DI lookup and one-time ext-parallel Runtime spawn cost.\n";
+echo "Use composer steady-state-parallel for HTTP steady-state measurements.\n\n";
 
-// Sync execution (prod-hal-app context - no parallel module)
 echo "Sync execution (prod-hal-app)...\n";
-$syncApp = Injector::getInstance('prod-hal-app')->getInstance(AppInterface::class);
-$syncResource = $syncApp->resource;
+$syncResource = Injector::getInstance('prod-hal-app')
+    ->getInstance(AppInterface::class)
+    ->resource;
 
-$syncTimes = [];
-for ($i = 0; $i < $iterations; $i++) {
-    $start = hrtime(true);
-    $response = $syncResource->get->uri('app://self/dashboard')->eager->request();
-    // Force embed resolution via rendering
-    $view = (string) $response;
-    $elapsed = (hrtime(true) - $start) / 1_000_000;
-    $syncTimes[] = $elapsed;
-    printf("  Run %d: %.2f ms\n", $i + 1, $elapsed);
-}
+$start = hrtime(true);
+$response = $syncResource->get->uri('app://self/dashboard')->eager->request();
+$view = (string) $response;
+$syncTime = (hrtime(true) - $start) / 1_000_000;
+printf("  Elapsed: %.2f ms\n\n", $syncTime);
 
-$syncAvg = array_sum($syncTimes) / count($syncTimes);
-printf("  Average: %.2f ms\n\n", $syncAvg);
-
-// Parallel execution (same context, ParallelRuntimeModule override)
 echo "Parallel execution (prod-hal-app + ParallelRuntimeModule override)...\n";
-$parallelApp = Injector::getOverrideInstance(
+$parallelResource = Injector::getOverrideInstance(
     'prod-hal-app',
     new ParallelRuntimeModule('prod-hal-app', 8),
-)->getInstance(AppInterface::class);
-$parallelResource = $parallelApp->resource;
+)->getInstance(AppInterface::class)->resource;
 
-// Warmup run (thread pool initialization)
-echo "  Warmup: ";
 $start = hrtime(true);
 $response = $parallelResource->get->uri('app://self/dashboard')->eager->request();
 $view = (string) $response;
-$warmupTime = (hrtime(true) - $start) / 1_000_000;
-printf("%.2f ms (excluded from average)\n", $warmupTime);
+$parallelTime = (hrtime(true) - $start) / 1_000_000;
+printf("  Elapsed: %.2f ms (includes one-time thread pool spawn cost)\n\n", $parallelTime);
 
-$parallelTimes = [];
-for ($i = 0; $i < $iterations; $i++) {
-    $start = hrtime(true);
-    $response = $parallelResource->get->uri('app://self/dashboard')->eager->request();
-    // Force embed resolution via rendering
-    $view = (string) $response;
-    $elapsed = (hrtime(true) - $start) / 1_000_000;
-    $parallelTimes[] = $elapsed;
-    printf("  Run %d: %.2f ms\n", $i + 1, $elapsed);
-}
-
-$parallelAvg = array_sum($parallelTimes) / count($parallelTimes);
-printf("  Average: %.2f ms\n\n", $parallelAvg);
-
-// Results
 echo "Results\n";
 echo "-------\n";
-printf("Sync average:     %.2f ms\n", $syncAvg);
-printf("Parallel average: %.2f ms\n", $parallelAvg);
-$speedup = $syncAvg / $parallelAvg;
-printf("Speedup:          %.2fx\n", $speedup);
+printf("Sync:     %.2f ms\n", $syncTime);
+printf("Parallel: %.2f ms\n", $parallelTime);
+printf("Ratio:    %.2fx\n", $syncTime / $parallelTime);
+echo "\nNote: this one-shot CLI run includes ext-parallel Runtime spawn (~hundreds of ms).\n";
+echo "      It is a cold-start reference, not a steady-state per-request benchmark.\n";
 
-// Verify HAL output contains embedded resources.
-//
-// Functional correctness is the primary CI gate: AsyncRequest must be
-// resolved by HalRenderer and produce _embedded entries. Wall-clock
-// speedup is informational — the embed graph is currently evaluated
-// eagerly inside Resource::get rather than on (string) $ro, so the
-// parallel runtime fires but main-process serial cost dominates. Until
-// that eager-evaluation gap is closed, a strict speedup threshold would
-// only flag the symptom, not a regression in this fix.
 $data = json_decode($view, true);
 $embedCount = isset($data['_embedded']) ? count($data['_embedded']) : 0;
 $expectedEmbeds = 8;
@@ -91,9 +55,5 @@ if ($embedCount !== $expectedEmbeds) {
     exit(1);
 }
 
-if ($speedup < 2.0) {
-    printf("\nINFO: Speedup is %.2fx (below 2x informational target). Parallel runtime executed correctly; main-process eager evaluation of embeds limits wall-clock gain.\n", $speedup);
-}
-
-printf("\nSUCCESS: %d embedded resources resolved through parallel runtime (%.2fx speedup)\n", $embedCount, $speedup);
+printf("\nSUCCESS: %d embedded resources resolved through parallel runtime\n", $embedCount);
 exit(0);
