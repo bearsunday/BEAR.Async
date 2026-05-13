@@ -21,6 +21,36 @@ These 3 embeds execute **in parallel** instead of sequentially.
 composer require bear/async
 ```
 
+## Demo and Benchmarks
+
+A runnable demo application lives in [`demo/`](demo/). It builds separate
+Docker images for ext-parallel and ext-swoole, starts MySQL, seeds a dashboard
+resource graph with 8 independent SQL-backed GET embeds, and exposes Sync,
+ext-parallel, and Swoole entrypoints.
+
+```bash
+cd demo
+docker compose up -d --wait parallel
+docker compose exec parallel composer install
+docker compose exec parallel composer app -- get 'app://self/dashboard?user_id=1'
+docker compose exec parallel composer async -- get 'app://self/dashboard?user_id=1'
+```
+
+The demo also includes cold one-shot CLI benchmarks and steady-state HTTP
+benchmarks with `wrk`:
+
+```bash
+docker compose exec parallel composer parallel-benchmark
+docker compose exec parallel composer steady-state-parallel
+docker compose up -d --wait swoole
+docker compose exec swoole composer swoole-benchmark
+docker compose exec swoole composer steady-state-swoole
+```
+
+See the [demo guide](demo/README.md) for setup details and
+[benchmark results](docs/benchmark-results.md) for measured numbers and
+adapter selection guidance.
+
 ## Execution Modes
 
 ### Parallel execution (ext-parallel)
@@ -158,6 +188,8 @@ Level 3: Comments for each post → all comment requests execute in parallel
 
 ## Documentation
 
+- [Demo Guide](demo/README.md) - Docker-based demo for Sync, ext-parallel, and Swoole
+- [Benchmark Results](docs/benchmark-results.md) - Measured cold CLI and steady-state HTTP results with adapter selection guidance
 - [Parallel Execution Architecture and Performance Analysis](https://bearsunday.github.io/BEAR.Async/parallel-execution-architecture.html) - Deep dive into architecture, AWS instance recommendations, and cost savings projections
 
 ## Requirements
