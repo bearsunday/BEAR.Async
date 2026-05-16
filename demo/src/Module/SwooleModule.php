@@ -37,7 +37,7 @@ final class SwooleModule extends AbstractModule
         $user = getenv('DB_USER');
         $pass = getenv('DB_PASS');
 
-        $dsn = $dsn === false || $dsn === '' ? 'mysql:host=127.0.0.1;dbname=demo' : $dsn;
+        $dsn = $dsn === false || $dsn === '' ? 'mysql:host=mysql;dbname=demo' : $dsn;
         $user = $user === false || $user === '' ? 'demo' : $user;
         $pass = $pass === false ? 'demo' : $pass;
 
