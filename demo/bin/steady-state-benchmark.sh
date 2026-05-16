@@ -28,7 +28,7 @@ Environment:
   BENCH_CLEAR_CACHE       Clear the target DI cache before starting a server (default: 1)
   PDO_POOL_SIZE           Swoole PDO pool size (default: 64)
   PARALLEL_POOL_SIZE      ext-parallel worker pool size (default: 8)
-  DB_DSN                  Database DSN (default: mysql:host=127.0.0.1;dbname=demo)
+  DB_DSN                  Database DSN (default: mysql:host=mysql;dbname=demo)
   DB_USER                 Database user (default: demo)
   DB_PASS                 Database password (default: demo)
 USAGE
@@ -186,7 +186,7 @@ ERROR
 
 prepare_server_env() {
   if [[ -z "${DB_DSN:-}" ]]; then
-    export DB_DSN="mysql:host=127.0.0.1;dbname=demo"
+    export DB_DSN="mysql:host=mysql;dbname=demo"
   fi
 
   if [[ -z "${DB_USER:-}" ]]; then
@@ -232,13 +232,13 @@ check_database() {
 
   cat >&2 <<'ERROR'
 
-For host runs with the demo compose MySQL, make sure MySQL is running and
-use the host-mapped address:
+The demo MySQL service is intentionally only exposed on the compose network.
+Run this benchmark inside the matching compose service:
 
   docker compose up -d --wait mysql
-  DB_DSN='mysql:host=127.0.0.1;dbname=demo' DB_USER=demo DB_PASS=demo composer setup
+  docker compose exec parallel composer steady-state-parallel
 
-The steady-state benchmark uses those host defaults when DB_DSN is not set.
+For host runs, set DB_DSN/DB_USER/DB_PASS to a database reachable from the host.
 ERROR
   exit 1
 }

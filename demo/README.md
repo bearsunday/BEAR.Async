@@ -182,9 +182,9 @@ bootstrap module on top of `AppModule`.
 `docker-compose.yml` presets `DB_DSN=mysql:host=mysql;dbname=demo`
 together with `DB_USER=demo` / `DB_PASS=demo` on both app services, and
 the bundled MySQL 8.0 service runs on the compose network with a matching
-schema. On a host machine, `env.dist.json` and the steady-state benchmark
-scripts default to `mysql:host=127.0.0.1;dbname=demo` with the same
-`demo` / `demo` credentials, which matches the compose port mapping.
+schema. The MySQL service is not published on the host; the demo uses the
+compose-internal `mysql` hostname so it does not collide with any local
+or other-project MySQL running on port 3306.
 `composer setup` (called automatically by `composer install`)
 reads those env vars, drops every table in the `demo` schema, and
 re-runs `sql/schema.sql` and `sql/seed.sql` through PDO — so you can
