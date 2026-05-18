@@ -202,77 +202,74 @@ requirement:
 | ext-parallel | ZTS PHP + ext-parallel | add `bin/async.php` |
 | ext-swoole | ext-swoole | install `AsyncSwooleModule`, use `bin/swoole.php` |
 
-## Mysqli Batch Execution
+## SQL Resources with BDR + `#[Embed]`
 
-Execute multiple SQL queries in parallel using mysqli's native async support.
+To run multiple SQL queries for one page, split each query into its own
+`ResourceObject` and let `#[Embed]` parallelize them via AsyncLinker. Combined
+with Ray.MediaQuery's [BDR pattern](https://github.com/ray-di/Ray.MediaQuery/blob/1.x/BDR_PATTERN.md)
+(`#[DbQuery]` interface + factory + immutable domain object), SQL stays in
+`var/sql/*.sql`, the call site reads as plain objects, and the resource graph
+itself is what gets parallelized.
 
-### Installation
+Recipe dependency (not bundled with BEAR.Async):
 
-```php
-use BEAR\Async\Module\MysqliBatchModule;
-
-class AppModule extends AbstractModule
-{
-    protected function configure(): void
-    {
-        $this->install(new MysqliBatchModule(
-            host: 'localhost',
-            user: 'root',
-            pass: 'password',
-            database: 'mydb',
-        ));
-    }
-}
+```bash
+composer require ray/media-query
 ```
 
-Or with environment variables:
-
 ```php
-use BEAR\Async\Module\MysqliEnvModule;
+use BEAR\Resource\Annotation\Embed;
+use BEAR\Resource\ResourceObject;
+use Ray\MediaQuery\Annotation\DbQuery;
 
-$this->install(new MysqliEnvModule(
-    'MYSQLI_HOST',
-    'MYSQLI_USER',
-    'MYSQLI_PASSWORD',
-    'MYSQLI_DATABASE',
-));
-```
-
-### Usage
-
-```php
-use BEAR\Async\SqlBatch;
-use BEAR\Async\SqlBatchExecutorInterface;
-
-class MyService
+// Domain object — immutable snapshot
+final class UserAccount
 {
     public function __construct(
-        private SqlBatchExecutorInterface $executor,
-    ) {}
+        public readonly int $id,
+        public readonly string $name,
+    ) {
+    }
+}
 
-    public function getData(int $userId): array
+// Repository — SQL lives in var/sql/user.sql.
+// UserFactory hydrates the row into UserAccount; see BDR_PATTERN.md for factory details.
+interface UserRepositoryInterface
+{
+    #[DbQuery('user', factory: UserFactory::class)]
+    public function getUser(int $id): UserAccount;
+}
+
+// Resource — one resource per SQL
+class User extends ResourceObject
+{
+    public function __construct(private UserRepositoryInterface $repo)
     {
-        // Execute multiple queries in parallel with invocable pattern
-        $results = (new SqlBatch($this->executor, [
-            'user' => ['SELECT * FROM users WHERE id = :id', ['id' => $userId]],
-            'posts' => ['SELECT * FROM posts WHERE user_id = :user_id', ['user_id' => $userId]],
-            'comments' => ['SELECT * FROM comments WHERE user_id = :user_id', ['user_id' => $userId]],
-        ]))();
+    }
 
-        return [
-            'user' => $results['user'][0] ?? null,
-            'posts' => $results['posts'],
-            'comments' => $results['comments'],
-        ];
+    public function onGet(int $id): static
+    {
+        $this->body = ['user' => $this->repo->getUser($id)];
+
+        return $this;
+    }
+}
+
+// Aggregate — Embeds parallelize automatically under AsyncLinker
+class UserDashboard extends ResourceObject
+{
+    #[Embed(rel: 'user',     src: 'app://self/user{?id}')]
+    #[Embed(rel: 'posts',    src: 'app://self/user/posts{?id}')]
+    #[Embed(rel: 'comments', src: 'app://self/user/comments{?id}')]
+    public function onGet(int $id): static
+    {
+        return $this;
     }
 }
 ```
 
-### Architecture
-
-| Class | Description |
-|-------|-------------|
-| `SqlBatch` | Invocable value object with `__invoke()` for one-line execution |
-| `SqlBatchExecutorInterface` | Stateless executor interface (singleton-safe) |
-| `MysqliBatchExecutor` | Async execution using `mysqli_poll` |
-| `SyncBatchExecutor` | Sequential execution for testing/fallback |
+- SQL stays in `var/sql/*.sql` (Ray.MediaQuery convention)
+- Domain objects are immutable snapshots; no `$results['user'][0] ?? null` plumbing at the call site
+- AsyncLinker runs the three embeds in parallel via ext-parallel (PHP-FPM / Apache) or Swoole coroutines
+- Without ext-parallel and without Swoole the same code runs synchronously per request, which is fine for PHP-FPM (each request is its own process)
+- For Swoole, install `PdoPoolModule` so each coroutine borrows a pooled PDO connection
