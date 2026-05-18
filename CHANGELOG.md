@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### BREAKING
+
+- Removed `BEAR\Async\SqlBatch` and `BEAR\Async\SqlBatchExecutorInterface`.
+- Removed mysqli-based async batch execution: `Mysqli\MysqliBatchExecutor`, `Mysqli\SyncBatchExecutor`, `Mysqli\MysqliConnectionFactory`, `Mysqli\MysqliParamBinder`.
+- Removed `Module\MysqliBatchModule`, `Module\MysqliEnvModule`, and `Exception\MysqliConnectionException`.
+- Removed the `BEAR\Projection\` namespace (`QueryBatchCoordinator`, `QueryResourceObject`, `Exception\SqlFileNotFoundException`).
+- **Migration:** split each SQL into its own `ResourceObject` and let `#[Embed]` parallelize them via AsyncLinker. Pair with Ray.MediaQuery's `#[DbQuery]` BDR pattern for the underlying Repository. See "SQL Resources with BDR + `#[Embed]`" in `README.md`.
+
 ## 0.3.0 - 2026-05-13
 
 ### Fixed
