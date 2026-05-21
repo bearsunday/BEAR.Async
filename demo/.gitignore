@@ -20,5 +20,4 @@ phpunit.xml
 /docs/api/
 /.phpcs.xml
 /.phpcs-cache
-/vendor-bin/**/vendor/
-
+/vendor-bin/
