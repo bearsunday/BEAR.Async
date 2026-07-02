@@ -24,6 +24,7 @@ use function sprintf;
  *   - PDO_USER: Database username (required)
  *   - PDO_PASSWORD: Database password (required)
  *   - PDO_POOL_SIZE: Pool size (optional, default: 64)
+ *   - PDO_POOL_BORROW_TIMEOUT: Seconds to wait for a pooled connection (optional, default: 5.0)
  *
  * Usage:
  *   class AppModule extends AbstractModule
@@ -48,6 +49,8 @@ final class PdoPoolEnvModule extends AbstractModule
         private readonly string $passEnv,
         private readonly string $poolSizeEnv = '',
         private readonly int $defaultPoolSize = 64,
+        private readonly string $borrowTimeoutEnv = '',
+        private readonly float $defaultBorrowTimeout = 5.0,
     ) {
         parent::__construct();
     }
@@ -58,15 +61,21 @@ final class PdoPoolEnvModule extends AbstractModule
         $user = $this->getRequiredEnv($this->userEnv);
         $pass = $this->getRequiredEnv($this->passEnv);
         $poolSize = $this->poolSizeEnv !== '' ? (int) getenv($this->poolSizeEnv) : $this->defaultPoolSize;
+        $borrowTimeout = $this->borrowTimeoutEnv !== '' ? (float) getenv($this->borrowTimeoutEnv) : $this->defaultBorrowTimeout;
 
         if ($poolSize <= 0) {
             $poolSize = $this->defaultPoolSize;
+        }
+
+        if ($borrowTimeout <= 0) {
+            $borrowTimeout = $this->defaultBorrowTimeout;
         }
 
         $this->bind()->annotatedWith('pdo_pool_dsn')->toInstance($dsn);
         $this->bind()->annotatedWith('pdo_pool_user')->toInstance($user);
         $this->bind()->annotatedWith('pdo_pool_pass')->toInstance($pass);
         $this->bind()->annotatedWith('pdo_pool_size')->toInstance($poolSize);
+        $this->bind()->annotatedWith('pdo_pool_borrow_timeout')->toInstance($borrowTimeout);
 
         $this->bind(PDOPool::class)->toProvider(PdoPoolProvider::class)->in(Scope::SINGLETON);
         $this->bind(PDO::class)->toProvider(PooledPdoProvider::class);

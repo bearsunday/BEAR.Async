@@ -28,4 +28,24 @@ class PdoPoolModuleTest extends TestCase
 
         $this->assertInstanceOf(PDOPool::class, $pool);
     }
+
+    public function testDefaultBorrowTimeoutBinding(): void
+    {
+        $module = new PdoPoolModule('mysql:host=localhost;dbname=test', 'user', 'pass', 2);
+        $injector = new Injector($module);
+
+        $borrowTimeout = $injector->getInstance('', 'pdo_pool_borrow_timeout');
+
+        $this->assertSame(5.0, $borrowTimeout);
+    }
+
+    public function testCustomBorrowTimeoutBinding(): void
+    {
+        $module = new PdoPoolModule('mysql:host=localhost;dbname=test', 'user', 'pass', 2, 1.5);
+        $injector = new Injector($module);
+
+        $borrowTimeout = $injector->getInstance('', 'pdo_pool_borrow_timeout');
+
+        $this->assertSame(1.5, $borrowTimeout);
+    }
 }

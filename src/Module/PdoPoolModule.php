@@ -38,16 +38,18 @@ use Swoole\Database\PDOPool;
 final class PdoPoolModule extends AbstractModule
 {
     /**
-     * @param non-empty-string $dsn      PDO DSN string
-     * @param string           $user     Database username
-     * @param string           $pass     Database password
-     * @param positive-int     $poolSize Pool size (number of connections)
+     * @param non-empty-string $dsn           PDO DSN string
+     * @param string           $user          Database username
+     * @param string           $pass          Database password
+     * @param positive-int     $poolSize      Pool size (number of connections)
+     * @param float            $borrowTimeout Seconds to wait for a pooled connection before giving up
      */
     public function __construct(
         private readonly string $dsn,
         private readonly string $user,
         private readonly string $pass,
         private readonly int $poolSize = 64,
+        private readonly float $borrowTimeout = 5.0,
     ) {
         parent::__construct();
     }
@@ -59,6 +61,7 @@ final class PdoPoolModule extends AbstractModule
         $this->bind()->annotatedWith('pdo_pool_user')->toInstance($this->user);
         $this->bind()->annotatedWith('pdo_pool_pass')->toInstance($this->pass);
         $this->bind()->annotatedWith('pdo_pool_size')->toInstance($this->poolSize);
+        $this->bind()->annotatedWith('pdo_pool_borrow_timeout')->toInstance($this->borrowTimeout);
 
         // Swoole\Database\PDOPool is created at runtime by provider
         $this->bind(PDOPool::class)->toProvider(PdoPoolProvider::class)->in(Scope::SINGLETON);
