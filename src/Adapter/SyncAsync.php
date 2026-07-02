@@ -40,16 +40,10 @@ final class SyncAsync implements AsyncInterface
     public function execute(array $requests): array
     {
         $results = [];
-        foreach ($requests as $uri => $request) {
-            $results[$uri] = (string) $request();
+        foreach ($requests as $key => $request) {
+            $results[$key] = (string) $request();
         }
 
         return $results;
-    }
-
-    #[Override]
-    public function isAvailable(): bool
-    {
-        return true;
     }
 }

@@ -21,11 +21,6 @@ class SyncAsyncTest extends TestCase
         $this->syncAsync = new SyncAsync();
     }
 
-    public function testIsAvailable(): void
-    {
-        $this->assertTrue($this->syncAsync->isAvailable());
-    }
-
     public function testInvokeWithEmptyTasks(): void
     {
         $this->expectNotToPerformAssertions();
