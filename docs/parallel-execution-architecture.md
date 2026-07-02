@@ -22,14 +22,14 @@ This document describes the architecture of BEAR.Async's parallel execution for 
 │                             │                    │              │
 │                             ▼                    ▼              │
 │                      ┌─────────────┐     ┌─────────────┐        │
-│                      │ AsyncEmbed  │     │ EmbedData   │        │
-│                      │ Interceptor │────▶│ Loader      │        │
+│                      │ AsyncEmbed  │     │ Pending     │        │
+│                      │ Interceptor │────▶│ Requests    │        │
 │                      └─────────────┘     └─────────────┘        │
 │                             │                    │              │
 │                             ▼                    ▼              │
 │                      ┌─────────────┐     ┌─────────────┐        │
-│                      │   Embed     │     │ Parallel    │        │
-│                      │  Requests   │────▶│ Async       │        │
+│                      │AsyncRequest │     │ Parallel    │        │
+│                      │DeferredReq. │────▶│ Async       │        │
 │                      └─────────────┘     └─────────────┘        │
 │                                                 │               │
 └─────────────────────────────────────────────────│───────────────┘
@@ -55,18 +55,86 @@ This document describes the architecture of BEAR.Async's parallel execution for 
 
 | Component | Responsibility |
 |-----------|----------------|
-| AsyncEmbedInterceptor | Collects `#[Embed]` requests as FutureResource |
-| EmbedRequests | Holds pending embed requests (singleton per request cycle) |
-| EmbedDataLoader | Dispatches tasks to AsyncInterface |
+| AsyncEmbedInterceptor | Replaces `EmbedInterceptorInterface`; wraps each `#[Embed]` in an `AsyncRequest` |
+| AsyncRequest / DeferredRequest | Defers resource construction/invocation until the batch is dispatched |
+| PendingRequests | Holds pending embed requests (singleton per request cycle; coroutine-local under Swoole) and dispatches the batch on first render (そうめん流し方式) |
+| AsyncLinkCrawler | Replaces `LinkCrawlerInterface`; parallelizes `linkCrawl()` graphs level by level |
 | ParallelAsync | Manages ext-parallel thread pool |
 | Runtime | Individual worker thread with bootstrapped ResourceInterface |
 
+Failures in any single task do not abort the batch: all sibling
+tasks/coroutines are allowed to finish, and only the first exception
+encountered is rethrown afterward (see "Failure Semantics" below).
+
+### Failure Semantics
+
+Both `ParallelAsync` and `SwooleAsync` apply the same rule: a `Throwable`
+raised while executing one task/request never aborts its siblings, and
+never crashes the Swoole worker process. Every dispatched task is always
+allowed to run to completion — successful ones still populate their result
+— and only after every task has finished is the first exception encountered
+(in task/request iteration order) rethrown to the caller. This turns a
+single failing embed into a 500 for that one request instead of an outage
+for every in-flight request sharing the same worker.
+
+There is deliberately no silent fallback between adapters: if the required
+extension (`ext-parallel` or `ext-swoole`) is not loaded, `ParallelModule`
+or `AsyncSwooleModule` throws `ExtensionNotLoadedException` at
+`configure()` time rather than degrading quietly to `SyncAsync`.
+`AsyncInterface` has no `isAvailable()` check to opt into that fallback —
+extension availability is a hard requirement of the module you chose to
+install.
+
 ## Thread Pool Lifecycle
 
-### Initialization (Once per PHP Process)
+`ParallelAsync` is bound `SINGLETON` and keeps its `parallel\Runtime` pool in
+an instance property (`$pool`), so the pool's lifetime is exactly the
+lifetime of the PHP process that owns that singleton — not "once globally".
+This distinction matters for where the process boundary actually sits:
+
+### Classic PHP-FPM / Apache: pool rebuilt every request
+
+A classic PHP-FPM or `php-cgi` worker does not persist application-level
+objects between requests — each request gets a fresh process (or a fresh
+bootstrap of the DI container within a reused OS process, depending on the
+SAPI/opcache configuration), so `ParallelAsync` and its pool are constructed
+from scratch on every request that uses embeds:
 
 ```text
-PHP-FPM Worker Start
+Every PHP-FPM Request
+       │
+       ▼
+AppModule + ParallelRuntimeModule override (fresh container)
+       │
+       ▼
+First embed/crawl needing AsyncInterface
+       │
+       ▼
+ParallelAsync::initializePool()
+       │
+       ├── new Runtime(bootstrap.php)  ─── Worker 1 bootstraps ResourceInterface
+       ├── new Runtime(bootstrap.php)  ─── Worker 2 bootstraps ResourceInterface
+       ├── new Runtime(bootstrap.php)  ─── Worker 3 bootstraps ResourceInterface
+       └── new Runtime(bootstrap.php)  ─── Worker 4 bootstraps ResourceInterface
+       │
+       ▼
+Pool used for this request only, then destroyed with the process/container
+```
+
+Under this model there is no amortization: every request pays full thread
+spawn + autoload + DI container build cost for every worker in the pool.
+This is why the README and benchmark results recommend a **resident worker
+process** for steady-state ext-parallel use.
+
+### Resident worker process: pool reused across requests
+
+A resident process that keeps the same `ParallelAsync` singleton alive
+across many requests — such as `demo/bin/parallel-server.php` — pays the
+pool-initialization cost once and reuses the warm pool for all subsequent
+requests:
+
+```text
+Resident Worker Process Start
        │
        ▼
 First Request with Embeds
@@ -80,8 +148,13 @@ ParallelAsync::initializePool()
        └── new Runtime(bootstrap.php)  ─── Worker 4 bootstraps ResourceInterface
        │
        ▼
-Pool Ready (reused for all subsequent requests)
+Pool Ready (reused for all subsequent requests on this process)
 ```
+
+`ParallelAsync` also warms exactly one worker synchronously before
+dispatching any task, serializing the (expensive) cold DI container build so
+the remaining pool threads hit a warm `WorkerResourceCache` instead of all
+compiling the same application concurrently.
 
 ### Request Processing (Every Request)
 
@@ -91,16 +164,16 @@ Request with 10 Embeds
        ▼
 AsyncEmbedInterceptor
        │
-       ├── Embed 1 ──▶ FutureResource ──┐
-       ├── Embed 2 ──▶ FutureResource ──┤
-       ├── ...                          ├──▶ EmbedRequests
-       └── Embed 10 ─▶ FutureResource ──┘
+       ├── Embed 1 ──▶ AsyncRequest ──┐
+       ├── Embed 2 ──▶ AsyncRequest ──┤
+       ├── ...                        ├──▶ PendingRequests
+       └── Embed 10 ─▶ AsyncRequest ──┘
        │
        ▼
-EmbedDataLoader::load()
+PendingRequests::executePending()
        │
        ▼
-ParallelAsync::__invoke()
+ParallelAsync::execute()
        │
        ├── Runtime 1 ◀── Task 1, 5, 9
        ├── Runtime 2 ◀── Task 2, 6, 10
@@ -108,7 +181,8 @@ ParallelAsync::__invoke()
        └── Runtime 4 ◀── Task 4, 8
        │
        ▼
-Collect Results & Resolve Futures
+Join every dispatched Future, then resolve results
+(first Throwable, if any, is rethrown only after all futures are joined)
 ```
 
 ## Cost Analysis
@@ -117,18 +191,14 @@ Collect Results & Resolve Futures
 
 | Phase | Cost | Frequency |
 |-------|------|-----------|
-| Pool initialization | ~22ms × poolSize | Once per PHP process |
-| Thread communication | ~5ms | Per request |
+| Pool initialization | scales with poolSize | Once per resident process; every request under classic PHP-FPM (see above) |
+| Thread communication | per-task overhead | Per request |
 | Task execution | I/O time | Per request |
 
-**Amortized Cost Example:**
-
-```text
-Bootstrap: 88ms (4 workers × 22ms)
-Requests per FPM worker: ~1,000
-
-Amortized bootstrap: 88ms ÷ 1,000 = 0.088ms/request ≈ negligible
-```
+For measured cold one-shot CLI vs. steady-state HTTP numbers, see
+[Benchmark Results](benchmark-results.md) — cold one-shot CLI runs include
+full Runtime startup cost, while steady-state HTTP numbers assume a resident
+process that keeps the runtime pool warm.
 
 ### Why I/O-Bound Operations Benefit
 
@@ -152,6 +222,13 @@ W4:  [Q4]----[Q8]----
 ```
 
 ## Real-World Performance Predictions
+
+The predictions in this section are illustrative, theoretical projections
+based on the cost model above — they are not measurements. They assume a
+warm, resident runtime pool (see "Resident worker process" above); under
+classic PHP-FPM/Apache without a resident worker, add full pool
+initialization cost to every request instead of amortizing it away. For
+actual measured numbers, see [Benchmark Results](benchmark-results.md).
 
 ### Use Case: Magazine Content Site
 
@@ -245,6 +322,13 @@ exit((require $bootstrap)(
 - Default (null): Uses CPU core count - good for most cases
 - Explicit value: Set to max expected embed count if known
 - Maximum useful: Equal to maximum concurrent embeds
+- As a starting point for sizing, `PARALLEL_POOL_SIZE >= embed_count` lets
+  one request's embeds all run in a single round per resident worker
+  process; see [Benchmark Results](benchmark-results.md#when-to-choose-parallel)
+  for how pool size, worker-process count, and measured throughput interact
+- This pool sizing only pays off under a resident worker process — under
+  classic PHP-FPM the pool (and its DI/autoload cost) is rebuilt every
+  request regardless of size
 
 ### Instance Type Recommendations
 
@@ -255,6 +339,34 @@ exit((require $bootstrap)(
 | Medium (1-10M PV) | c5.xlarge | 4 | Compute optimized |
 | Large (10-100M PV) | c5.2xlarge | 8 | Good balance |
 | Very Large (> 100M PV) | c5.4xlarge | 16 | High throughput |
+
+### Connection Pool Hardening (Swoole)
+
+`PdoPoolModule`/`RedisPoolModule` size their pools independently of the
+ext-parallel worker pool above. Guidance:
+
+- Size the pool to roughly `embed_count * request_concurrency` so one
+  dashboard-style request does not starve concurrent requests of
+  connections; see [Benchmark Results](benchmark-results.md#when-to-choose-parallel)
+  for measured throughput and MySQL connection counts at different
+  `PDO_POOL_SIZE` values.
+- Borrowing blocks for at most `borrowTimeout` seconds (default 5.0,
+  configurable per module) before throwing `PoolTimeoutException`, so pool
+  exhaustion fails fast instead of hanging the request indefinitely.
+- Every PDO checkout is pinged (`SELECT 1`) before being handed out; a dead
+  connection (e.g. after a MySQL restart or `wait_timeout`) is discarded and
+  retried once, so the pool self-heals instead of poisoning every borrower
+  with a connection that will fail on first use. If no live connection can
+  be found, `StalePooledConnectionException` is thrown.
+- Redis connections are cached per coroutine the same way PDO connections
+  are, avoiding redundant pool checkouts within a single coroutine.
+
+**WARNING**: injecting `ExtendedPdoInterface` (or `PDO`/`Redis`) into a
+`SINGLETON`-scoped class captures one coroutine's borrowed connection for
+the life of the process, defeating the pool and corrupting concurrent
+coroutines that share it. Keep DB-using dependencies prototype-scoped
+(the default Ray.Di scope), or inject a provider and call `get()` per use
+instead of caching the connection on a singleton.
 
 ## Limitations and Considerations
 
@@ -275,17 +387,25 @@ exit((require $bootstrap)(
 
 | Factor | Impact | Mitigation |
 |--------|--------|------------|
-| Thread communication | ~5ms per request | Acceptable for I/O > 20ms |
-| Memory per worker | ~50-100MB | Size instance appropriately |
-| Bootstrap time | ~22ms per worker | Amortized over process lifetime |
+| Thread communication | small per-request overhead | Acceptable when I/O time per embed dominates it |
+| Memory per worker | grows with pool size and worker-process count | Size instance appropriately; see [Benchmark Results](benchmark-results.md) sample memory columns |
+| Runtime pool bootstrap (thread spawn + autoload + DI build) | amortized only under a resident worker process | Run a resident process (e.g. `demo/bin/parallel-server.php`); under classic PHP-FPM this cost is paid on every request, not amortized |
 
 ## Conclusion
 
-BEAR.Async's parallel execution provides significant performance improvements for I/O-bound embed operations:
+BEAR.Async's parallel execution can meaningfully speed up I/O-bound embed
+operations, but the win is conditional on the runtime hosting model:
 
-- **58-64% faster response times** for typical content pages
-- **Negligible overhead** (~5ms) compared to time saved (~50-60ms)
-- **Cost-effective** at scale with measurable ROI
-- **Simple configuration** with automatic CPU detection
-
-The architecture efficiently reuses thread pools across requests, making the bootstrap cost negligible in production environments.
+- Under a **resident worker process** that keeps the `parallel\Runtime` pool
+  warm, only per-request thread communication and I/O time remain in the
+  critical path — see [Benchmark Results](benchmark-results.md) for measured
+  steady-state HTTP numbers.
+- Under **classic PHP-FPM/Apache** without a resident process, the pool
+  (thread spawn, autoload, DI container build) is rebuilt on every request,
+  so cold one-shot CLI numbers in [Benchmark Results](benchmark-results.md)
+  are the relevant reference, not the amortized model above.
+- **Cost-effectiveness** depends on this same distinction: pool-size and
+  instance-sizing decisions should be validated against measured results for
+  your actual hosting model, not the theoretical projections in this
+  document alone.
+- **Simple configuration** with automatic CPU-core detection for pool size.

@@ -56,7 +56,17 @@ adapter selection guidance.
 ### Parallel execution (ext-parallel)
 
 Recommended for typical PHP-FPM / Apache web applications with embedded
-resources.
+resources — with one important caveat: the `parallel\Runtime` pool lives in
+userland process state (inside the singleton `ParallelAsync` adapter), so
+under classic PHP-FPM/Apache (one process per request, no shared state) the
+pool is spawned fresh on every request, including thread creation, autoload,
+and DI container build for each worker. Steady-state, low-latency benefits
+require a resident process that keeps the pool warm across requests — see
+[`demo/bin/parallel-server.php`](demo/bin/parallel-server.php) — not a
+one-shot CLI script or a fresh PHP-FPM worker per request. `ParallelAsync`
+also warms one worker synchronously before dispatching any task, so the
+(expensive) cold DI container build happens once instead of once per pool
+thread.
 
 Add `bin/async.php` next to `bin/app.php`. It hands off to the library
 bootstrap, which overlays the ext-parallel runtime on the normal AppModule:
@@ -155,6 +165,33 @@ class AppModule extends AbstractModule
 }
 ```
 
+#### Pool sizing and hardening
+
+`PdoPoolModule`/`RedisPoolModule` (and their env-driven counterparts) accept
+a `borrowTimeout` (default 5.0s, bound as `pdo_pool_borrow_timeout` /
+`redis_pool_borrow_timeout`). Borrowing from an exhausted pool fails fast
+with `PoolTimeoutException` instead of blocking forever. Every PDO checkout
+is pinged first (`SELECT 1`); a dead connection (e.g. after a MySQL restart
+or `wait_timeout`) is discarded and retried once, so the pool self-heals
+instead of handing out connections that will fail on first use — if it
+still cannot find a live connection, it throws
+`StalePooledConnectionException`. Redis connections are cached per
+coroutine the same way PDO connections are, so repeated injections within
+one coroutine reuse the same checkout instead of exhausting the pool.
+
+Size the pool to roughly `embed_count * request_concurrency` so that one
+dashboard-style request with several embeds does not starve concurrent
+requests; see [benchmark results](docs/benchmark-results.md) for measured
+throughput and connection counts at different pool sizes.
+
+**WARNING**: never inject `ExtendedPdoInterface` (or `PDO`/`Redis`) into a
+`SINGLETON`-scoped class. The provider hands out a connection borrowed for
+*one* coroutine, and a singleton would capture that single connection for
+the lifetime of the process — defeating the pool and causing cross-coroutine
+corruption. Keep DB-using dependencies prototype-scoped (the default), or
+inject a provider (`ProviderInterface<ExtendedPdoInterface>`) and call
+`get()` per use instead of caching the connection.
+
 ## Which execution mode should I use?
 
 | Use Case | Entrypoint | Runtime setup |
@@ -174,17 +211,41 @@ class AppModule extends AbstractModule
 
 ## How It Works
 
-The AsyncLinker replaces the standard Linker to enable parallel execution of resource requests:
+BEAR.Async replaces two bear/resource bindings to parallelize resource
+requests:
 
-1. **Level-by-level execution**: Requests are processed level by level
-2. **Request deduplication**: Same requests are merged and executed only once
-3. **Result caching**: Results are cached to avoid redundant requests
+1. **`LinkCrawlerInterface` → `AsyncLinkCrawler`**: parallelizes `linkCrawl()`
+   graphs level by level. Requests at each level are batched, deduplicated by
+   URI+query hash, and executed together; results are cached and distributed
+   to all requesters.
+2. **`EmbedInterceptorInterface` → `AsyncEmbedInterceptor`**: parallelizes
+   `#[Embed]` resources. Each embed is wrapped in an `AsyncRequest`/
+   `DeferredRequest` and registered with `PendingRequests`, which collects all
+   pending embeds and dispatches them as one batch the first time any of them
+   is rendered (そうめん流し方式).
+
+Both paths hand the batched work to the configured `AsyncInterface` adapter
+(`ParallelAsync`, `SwooleAsync`, or `SyncAsync`).
 
 ```text
 Level 1: Users → all user requests execute in parallel
 Level 2: Posts for each user → all post requests execute in parallel
 Level 3: Comments for each post → all comment requests execute in parallel
 ```
+
+### Failure semantics
+
+One failing embed or crawl task does not kill the Swoole worker process or
+abort its sibling tasks — every task/coroutine runs to completion, and only
+then is the first exception encountered rethrown to the caller, producing a
+500 for that request alone. `ParallelAsync` follows the same rule for
+ext-parallel: every dispatched worker `Future` is joined before the first
+`Throwable` is rethrown.
+
+There is no silent fallback: if the required extension (`ext-parallel` or
+`ext-swoole`) is not loaded, the owning module throws
+`ExtensionNotLoadedException` at `configure()` time rather than degrading
+quietly to `SyncAsync`.
 
 ## Documentation
 
@@ -205,8 +266,8 @@ requirement:
 ## SQL Resources with BDR + `#[Embed]`
 
 To run multiple SQL queries for one page, split each query into its own
-`ResourceObject` and let `#[Embed]` parallelize them via AsyncLinker. Combined
-with Ray.MediaQuery's [BDR pattern](https://github.com/ray-di/Ray.MediaQuery/blob/1.x/BDR_PATTERN.md)
+`ResourceObject` and let `#[Embed]` parallelize them via `AsyncEmbedInterceptor`.
+Combined with Ray.MediaQuery's [BDR pattern](https://github.com/ray-di/Ray.MediaQuery/blob/1.x/BDR_PATTERN.md)
 (`#[DbQuery]` interface + factory + immutable domain object), SQL stays in
 `var/sql/*.sql`, the call site reads as plain objects, and the resource graph
 itself is what gets parallelized.
@@ -255,7 +316,7 @@ class User extends ResourceObject
     }
 }
 
-// Aggregate — Embeds parallelize automatically under AsyncLinker
+// Aggregate — Embeds parallelize automatically via AsyncEmbedInterceptor
 class UserDashboard extends ResourceObject
 {
     #[Embed(rel: 'user',     src: 'app://self/user{?id}')]
@@ -270,6 +331,6 @@ class UserDashboard extends ResourceObject
 
 - SQL stays in `var/sql/*.sql` (Ray.MediaQuery convention)
 - Domain objects are immutable snapshots; no `$results['user'][0] ?? null` plumbing at the call site
-- AsyncLinker runs the three embeds in parallel via ext-parallel (PHP-FPM / Apache) or Swoole coroutines
+- `AsyncEmbedInterceptor` runs the three embeds in parallel via ext-parallel (PHP-FPM / Apache) or Swoole coroutines
 - Without ext-parallel and without Swoole the same code runs synchronously per request, which is fine for PHP-FPM (each request is its own process)
-- For Swoole, install `PdoPoolModule` so each coroutine borrows a pooled PDO connection
+- For Swoole, install `PdoPoolModule` so each coroutine borrows a pooled PDO connection, and keep DB-using dependencies prototype-scoped (see the pool-sizing warning above)

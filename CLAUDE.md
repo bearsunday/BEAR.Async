@@ -15,39 +15,53 @@ composer sa            # Run PHPStan + Psalm
 
 ```bash
 ./vendor/bin/phpunit --filter testMethodName
-./vendor/bin/phpunit tests/AsyncTest.php
+./vendor/bin/phpunit tests/PendingRequestsTest.php
 ```
 
 ## Architecture
 
-BEAR.Async enables transparent parallel execution of BEAR.Sunday's `#[Embed]` resources by replacing the `LinkerInterface` implementation.
+BEAR.Async enables transparent parallel execution of BEAR.Sunday's `#[Embed]` resources by replacing two bindings: `LinkCrawlerInterface` (for `linkCrawl()` graphs) and `EmbedInterceptorInterface` (for `#[Embed]` attributes).
 
 ### Core Design
 
 ```
-LinkerInterface (bear/resource)
-       ↓ replaced by
-AsyncLinker ──uses──→ AsyncInterface
-                           ↓ implemented by
-              ┌────────────┼────────────┐
-        ParallelAsync  SwooleAsync  SyncAsync
-        (ext-parallel)  (ext-swoole) (fallback)
+LinkCrawlerInterface (bear/resource)         EmbedInterceptorInterface (bear/resource)
+       ↓ replaced by                                ↓ replaced by
+AsyncLinkCrawler ──uses──→ AsyncInterface     AsyncEmbedInterceptor ──uses──→ PendingRequests
+                                ↓ implemented by            (wraps embeds in AsyncRequest/DeferredRequest,
+                   ┌────────────┼────────────┐              batches them, executes via AsyncInterface)
+             ParallelAsync  SwooleAsync  SyncAsync
+             (ext-parallel)  (ext-swoole) (fallback)
 ```
 
 ### Key Components
 
-- **AsyncLinker**: Replaces standard Linker, executes crawl requests level-by-level in parallel
+- **AsyncLinkCrawler**: Replaces `LinkCrawler`, executes `linkCrawl()` requests level-by-level in parallel
+- **AsyncEmbedInterceptor** / **PendingRequests** / **AsyncRequest** / **DeferredRequest**: Parallelize `#[Embed]` resources — the interceptor wraps each embed in an `AsyncRequest`, `PendingRequests` collects them (そうめん流し方式) and dispatches the batch through `AsyncInterface` on first render
 - **AsyncInterface**: Adapter interface for different async runtimes
 - **Adapters**: `ParallelAsync` (thread pool), `SwooleAsync` (coroutines), `SyncAsync` (sequential)
-- **Modules**: `ParallelRuntimeModule` (`@internal` bootstrap override), `ParallelModule` (`@internal` mechanism), `AsyncSwooleModule`
-- **PdoPool/PdoPoolModule**: Connection pool for Swoole (coroutines share memory, need pooled PDO)
+- **Modules**: `ParallelRuntimeModule` (`@internal` bootstrap override), `ParallelModule` (`@internal` mechanism), `AsyncSwooleModule`, `AsyncEmbedModule` (binds `EmbedInterceptorInterface`, installed automatically by the above)
+- **PdoPool/PdoPoolModule**, **RedisPool/RedisPoolModule**: Connection pools for Swoole (coroutines share memory, need pooled connections)
 
 ### How Parallel Execution Works
 
-1. `AsyncLinker.linkCrawl()` collects all embed requests at each level
-2. `RequestBatch` deduplicates requests by URI+query hash
-3. `AsyncInterface` executes all tasks in parallel
-4. Results are cached and distributed to all requesters
+1. `AsyncLinkCrawler.crawl()` collects all `linkCrawl()` requests at each level via `RequestBatch`
+2. `AsyncEmbedInterceptor` wraps each `#[Embed]` in an `AsyncRequest`/`DeferredRequest` and registers it with `PendingRequests`
+3. `RequestBatch` deduplicates crawl requests by URI+query hash; `PendingRequests` dedupes embeds by request hash
+4. `AsyncInterface` executes all tasks/requests in parallel
+5. Results are cached and distributed to all requesters
+
+### Failure semantics
+
+A failing embed or crawl task never aborts its siblings or crashes the
+Swoole worker process: every task/coroutine is allowed to finish, and only
+after all of them complete is the first encountered exception rethrown to
+the caller (a 500 for that one request, not the whole worker). `ParallelAsync`
+follows the same pattern — every dispatched `parallel\Future` is joined
+before the first `Throwable` is rethrown. There is deliberately no silent
+fallback: if the required extension (`ext-parallel`/`ext-swoole`) is missing,
+the owning module's `configure()` throws `ExtensionNotLoadedException`
+immediately instead of degrading to `SyncAsync`.
 
 ### ext-parallel entrypoint flow
 
@@ -74,7 +88,7 @@ worker's own `ResourceInterface` via plain `BEAR\Package\Injector::getInstance`
 
 ### Module selection
 
-- **ext-parallel (PHP-FPM / Apache)**: add `bin/async.php`; AppModule is unchanged
+- **ext-parallel (PHP-FPM / Apache)**: add `bin/async.php`; AppModule is unchanged. The `parallel\Runtime` pool lives in userland process state, so under classic PHP-FPM it is rebuilt on every request (thread spawn + autoload + container per worker). Steady-state benefits require a resident worker process that keeps the pool warm across requests (see `demo/bin/parallel-server.php`), not a fresh PHP-FPM process per request.
 - **ext-swoole**: install `AsyncSwooleModule` in AppModule and run `bin/swoole.php`; requires `PdoPoolModule` for PDO
 
 ## Code Quality
