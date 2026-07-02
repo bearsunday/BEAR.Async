@@ -58,14 +58,13 @@ adapter selection guidance.
 Recommended for typical PHP-FPM / Apache web applications with embedded
 resources — with one important caveat: the `parallel\Runtime` pool lives in
 userland process state (inside the singleton `ParallelAsync` adapter), so
-under classic PHP-FPM/Apache (one process per request, no shared state) the
-pool is spawned fresh on every request, including thread creation, autoload,
-and DI container build for each worker. Steady-state, low-latency benefits
-require a resident process that keeps the pool warm across requests — see
-[`demo/bin/parallel-server.php`](demo/bin/parallel-server.php) — not a
-one-shot CLI script or a fresh PHP-FPM worker per request. `ParallelAsync`
+under classic PHP-FPM/Apache the pool is rebuilt for each request that needs
+it, so the cold thread, autoload, and DI container cost is paid per request.
+Steady-state, low-latency benefits require a resident process that keeps the
+pool warm across requests — see
+[`demo/bin/parallel-server.php`](demo/bin/parallel-server.php). `ParallelAsync`
 also warms one worker synchronously before dispatching any task, so the
-(expensive) cold DI container build happens once instead of once per pool
+expensive cold DI container build happens once instead of once per pool
 thread.
 
 Add `bin/async.php` next to `bin/app.php`. It hands off to the library
@@ -332,5 +331,5 @@ class UserDashboard extends ResourceObject
 - SQL stays in `var/sql/*.sql` (Ray.MediaQuery convention)
 - Domain objects are immutable snapshots; no `$results['user'][0] ?? null` plumbing at the call site
 - `AsyncEmbedInterceptor` runs the three embeds in parallel via ext-parallel (PHP-FPM / Apache) or Swoole coroutines
-- Without ext-parallel and without Swoole the same code runs synchronously per request, which is fine for PHP-FPM (each request is its own process)
+- Without ext-parallel and without Swoole the same code runs synchronously per request, which is the expected sequential behavior.
 - For Swoole, install `PdoPoolModule` so each coroutine borrows a pooled PDO connection, and keep DB-using dependencies prototype-scoped (see the pool-sizing warning above)

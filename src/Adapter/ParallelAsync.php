@@ -280,6 +280,14 @@ final class ParallelAsync implements AsyncInterface
 
     private function initializePool(): void
     {
+        // A prior call may have left runtimes behind if warmup failed partway
+        // (initialized stays false so the next call retries from scratch);
+        // kill them first so failed attempts don't leak threads.
+        foreach ($this->pool as $runtime) {
+            $runtime->kill();
+        }
+
+        $this->pool = [];
         for ($i = 0; $i < $this->poolSize; $i++) {
             $this->pool[] = new Runtime($this->bootstrapFile);
         }

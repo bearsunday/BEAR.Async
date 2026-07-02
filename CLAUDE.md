@@ -24,7 +24,7 @@ BEAR.Async enables transparent parallel execution of BEAR.Sunday's `#[Embed]` re
 
 ### Core Design
 
-```
+```text
 LinkCrawlerInterface (bear/resource)         EmbedInterceptorInterface (bear/resource)
        ↓ replaced by                                ↓ replaced by
 AsyncLinkCrawler ──uses──→ AsyncInterface     AsyncEmbedInterceptor ──uses──→ PendingRequests
