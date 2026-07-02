@@ -12,7 +12,10 @@ use function sprintf;
  * Singleton collector for async requests (そうめん流し方式)
  *
  * Collects pending AsyncRequests and executes them all in parallel
- * when any result is requested. Results are cached by URI.
+ * when any result is requested. Results are cached by request identity
+ * (AbstractRequest::hash()), which — unlike the URI alone — also accounts
+ * for method and links, so two requests to the same URI with different
+ * link* configurations are never conflated.
  *
  * Flow:
  * 1. AsyncRequest registers itself via add()
@@ -23,10 +26,10 @@ use function sprintf;
  */
 final class PendingRequests
 {
-    /** @var array<string, AsyncRequest> URI (from AsyncRequest::toUri()) => AsyncRequest */
+    /** @var array<string, AsyncRequest> AbstractRequest::hash() => AsyncRequest */
     private array $pending = [];
 
-    /** @var array<string, string> URI => rendered view string */
+    /** @var array<string, string> AbstractRequest::hash() => rendered view string */
     private array $results = [];
 
     public function __construct(
@@ -36,43 +39,44 @@ final class PendingRequests
 
     public function add(AsyncRequest $request): void
     {
-        $uri = $request->toUri();
-        if (! isset($this->results[$uri]) && ! isset($this->pending[$uri])) {
-            $this->pending[$uri] = $request;
+        $key = $request->hash();
+        if (! isset($this->results[$key]) && ! isset($this->pending[$key])) {
+            $this->pending[$key] = $request;
         }
     }
 
     /**
-     * Re-key a pending request after its URI changes
+     * Re-key a pending request after its identity changes
      *
-     * AsyncRequest is registered with its initial URI in {@see add()}. When
+     * AsyncRequest is registered with its initial hash in {@see add()}. When
      * the inner request's query/links mutate (via withQuery/addQuery/link*)
-     * the URI changes too, so the pending entry must move to the new key.
-     * Otherwise __toString() (which looks up $this->toUri()) would miss.
+     * the hash changes too, so the pending entry must move to the new key.
+     * Otherwise getResult() (which looks up $request->hash()) would miss.
      */
-    public function rekey(string $previousUri, AsyncRequest $request): void
+    public function rekey(string $previousKey, AsyncRequest $request): void
     {
-        $newUri = $request->toUri();
-        if ($previousUri === $newUri) {
+        $newKey = $request->hash();
+        if ($previousKey === $newKey) {
             return;
         }
 
-        if (isset($this->pending[$previousUri]) && $this->pending[$previousUri] === $request) {
-            unset($this->pending[$previousUri]);
+        if (isset($this->pending[$previousKey]) && $this->pending[$previousKey] === $request) {
+            unset($this->pending[$previousKey]);
         }
 
-        if (! isset($this->results[$newUri]) && ! isset($this->pending[$newUri])) {
-            $this->pending[$newUri] = $request;
+        if (! isset($this->results[$newKey]) && ! isset($this->pending[$newKey])) {
+            $this->pending[$newKey] = $request;
         }
     }
 
-    public function getResult(string $uri): string
+    public function getResult(AsyncRequest $request): string
     {
-        if (! isset($this->results[$uri])) {
+        $key = $request->hash();
+        if (! isset($this->results[$key])) {
             $this->executePending();
         }
 
-        return $this->results[$uri] ?? throw new ResultNotFoundException(sprintf('Result not found for URI: %s', $uri));
+        return $this->results[$key] ?? throw new ResultNotFoundException(sprintf('Result not found for URI: %s', $request->toUri()));
     }
 
     private function executePending(): void
@@ -81,8 +85,8 @@ final class PendingRequests
             return;
         }
 
-        foreach ($this->async->execute($this->pending) as $uri => $result) {
-            $this->results[$uri] = $result;
+        foreach ($this->async->execute($this->pending) as $key => $result) {
+            $this->results[$key] = $result;
         }
 
         $this->pending = [];

@@ -6,6 +6,8 @@ namespace BEAR\Async;
 
 use BEAR\Async\Adapter\SyncAsync;
 use BEAR\Async\Fake\FakeInvoker;
+use BEAR\Async\Fake\FakePendingResourceProvider;
+use BEAR\Async\Fake\FakeResource;
 use BEAR\Async\Fake\FakeResourceObject;
 use BEAR\Resource\AbstractRequest;
 use BEAR\Resource\Method;
@@ -133,6 +135,9 @@ class AsyncRequestTest extends TestCase
 
         $request = new Request($invoker, $ro, Method::GET, []);
 
+        // Adapters treat keys as opaque and must echo them back; the fake
+        // reflects that by deriving the rendered view from the input key
+        // (a request hash), not the URI.
         $async = new class implements AsyncInterface {
             /** {@inheritDoc} */
             public function __invoke(array $tasks): void
@@ -143,31 +148,30 @@ class AsyncRequestTest extends TestCase
             public function execute(array $requests): array
             {
                 $results = [];
-                foreach ($requests as $uri => $request) {
-                    $results[$uri] = '<rendered:' . $uri . '>';
+                foreach ($requests as $key => $request) {
+                    unset($request);
+                    $results[$key] = '<rendered:' . $key . '>';
                 }
 
                 return $results;
-            }
-
-            public function isAvailable(): bool
-            {
-                return true;
             }
         };
 
         $pendingRequests = new PendingRequests($async);
         $asyncRequest = new AsyncRequest($request, $pendingRequests);
 
-        $this->assertSame('<rendered:app://self/article>', (string) $asyncRequest);
+        $this->assertSame('<rendered:' . $asyncRequest->hash() . '>', (string) $asyncRequest);
     }
 
     public function testJsonSerializeUsesPendingBatch(): void
     {
-        $invoker = new FakeInvoker(new FakeResourceObject('app://self/unused'), false);
+        // Uses DeferredRequest (as AsyncEmbedInterceptor does in production)
+        // so hash() discriminates by URI; a plain Request's inherited
+        // hash() does not include the URI, only resourceObject::class.
+        $provider = new FakePendingResourceProvider(new FakeResource());
 
-        $request1 = new Request($invoker, new FakeResourceObject('app://self/one'), Method::GET, []);
-        $request2 = new Request($invoker, new FakeResourceObject('app://self/two'), Method::GET, []);
+        $request1 = new DeferredRequest($provider, Method::GET, 'app://self/one');
+        $request2 = new DeferredRequest($provider, Method::GET, 'app://self/two');
 
         $async = new class implements AsyncInterface {
             public int $executeCount = 0;
@@ -182,15 +186,14 @@ class AsyncRequestTest extends TestCase
             {
                 $this->executeCount++;
 
-                return [
-                    'app://self/one' => '{"name":"one"}',
-                    'app://self/two' => '{"name":"two"}',
-                ];
-            }
+                $results = [];
+                foreach ($requests as $key => $request) {
+                    $results[$key] = $request->toUri() === 'app://self/one'
+                        ? '{"name":"one"}'
+                        : '{"name":"two"}';
+                }
 
-            public function isAvailable(): bool
-            {
-                return true;
+                return $results;
             }
         };
 
@@ -222,12 +225,13 @@ class AsyncRequestTest extends TestCase
             {
                 $this->executeCount++;
 
-                return ['app://self/article' => '{"title":"hello"}'];
-            }
+                $results = [];
+                foreach ($requests as $key => $request) {
+                    unset($request);
+                    $results[$key] = '{"title":"hello"}';
+                }
 
-            public function isAvailable(): bool
-            {
-                return true;
+                return $results;
             }
         };
 
@@ -237,5 +241,86 @@ class AsyncRequestTest extends TestCase
         $this->assertSame('{"title":"hello"}', json_encode($asyncRequest, JSON_THROW_ON_ERROR));
         $this->assertSame('{"title":"hello"}', (string) $asyncRequest);
         $this->assertSame(1, $async->executeCount);
+    }
+
+    public function testHashDelegatesToInnerRequest(): void
+    {
+        $ro = new FakeResourceObject('app://self/user');
+        $invoker = new FakeInvoker($ro);
+        $request = new Request($invoker, $ro, Method::GET, []);
+
+        $pendingRequests = new PendingRequests(new SyncAsync());
+        $asyncRequest = new AsyncRequest($request, $pendingRequests);
+
+        $this->assertSame($request->hash(), $asyncRequest->hash());
+    }
+
+    public function testHashDiffersForSameUriWithDifferentLinks(): void
+    {
+        // F6: hash() must be identity-sensitive to links, not just URI, so
+        // that a plain request and a ->linkCrawl() request to the same URI
+        // are not conflated by PendingRequests.
+        $resource = new FakeResource();
+        $provider = new FakePendingResourceProvider($resource);
+
+        $plain = new DeferredRequest($provider, Method::GET, 'app://self/user');
+        $crawled = new DeferredRequest($provider, Method::GET, 'app://self/user');
+        $crawled->linkCrawl('tree');
+
+        $pendingRequests = new PendingRequests(new SyncAsync());
+        $asyncPlain = new AsyncRequest($plain, $pendingRequests);
+        $asyncCrawled = new AsyncRequest($crawled, $pendingRequests);
+
+        $this->assertSame($asyncPlain->toUri(), $asyncCrawled->toUri());
+        $this->assertNotSame($asyncPlain->hash(), $asyncCrawled->hash());
+    }
+
+    public function testLinkCrawlRekeysPendingRequest(): void
+    {
+        $resource = new FakeResource();
+        $provider = new FakePendingResourceProvider($resource);
+        $request = new DeferredRequest($provider, Method::GET, 'app://self/user');
+
+        $pendingRequests = new PendingRequests(new SyncAsync());
+        $asyncRequest = new AsyncRequest($request, $pendingRequests);
+        $originalHash = $asyncRequest->hash();
+
+        $asyncRequest->linkCrawl('tree');
+
+        $this->assertNotSame($originalHash, $asyncRequest->hash());
+        // Resolves under the new hash without ResultNotFoundException.
+        $this->assertNotEmpty((string) $asyncRequest);
+    }
+
+    public function testLinkSelfRekeysPendingRequest(): void
+    {
+        $resource = new FakeResource();
+        $provider = new FakePendingResourceProvider($resource);
+        $request = new DeferredRequest($provider, Method::GET, 'app://self/user');
+
+        $pendingRequests = new PendingRequests(new SyncAsync());
+        $asyncRequest = new AsyncRequest($request, $pendingRequests);
+        $originalHash = $asyncRequest->hash();
+
+        $asyncRequest->linkSelf('profile');
+
+        $this->assertNotSame($originalHash, $asyncRequest->hash());
+        $this->assertNotEmpty((string) $asyncRequest);
+    }
+
+    public function testLinkNewRekeysPendingRequest(): void
+    {
+        $resource = new FakeResource();
+        $provider = new FakePendingResourceProvider($resource);
+        $request = new DeferredRequest($provider, Method::GET, 'app://self/user');
+
+        $pendingRequests = new PendingRequests(new SyncAsync());
+        $asyncRequest = new AsyncRequest($request, $pendingRequests);
+        $originalHash = $asyncRequest->hash();
+
+        $asyncRequest->linkNew('profile');
+
+        $this->assertNotSame($originalHash, $asyncRequest->hash());
+        $this->assertNotEmpty((string) $asyncRequest);
     }
 }
