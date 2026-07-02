@@ -29,4 +29,24 @@ class RedisPoolModuleTest extends TestCase
 
         $this->assertInstanceOf(RedisPool::class, $pool);
     }
+
+    public function testDefaultBorrowTimeoutBinding(): void
+    {
+        $module = new RedisPoolModule('127.0.0.1', 6379, poolSize: 2);
+        $injector = new Injector($module);
+
+        $borrowTimeout = $injector->getInstance('', 'redis_pool_borrow_timeout');
+
+        $this->assertSame(5.0, $borrowTimeout);
+    }
+
+    public function testCustomBorrowTimeoutBinding(): void
+    {
+        $module = new RedisPoolModule('127.0.0.1', 6379, poolSize: 2, borrowTimeout: 1.5);
+        $injector = new Injector($module);
+
+        $borrowTimeout = $injector->getInstance('', 'redis_pool_borrow_timeout');
+
+        $this->assertSame(1.5, $borrowTimeout);
+    }
 }

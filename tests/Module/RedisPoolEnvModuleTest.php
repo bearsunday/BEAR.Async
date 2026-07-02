@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BEAR\Async\Module;
 
 use BEAR\Async\Exception\MissingEnvException;
+use BEAR\Async\Exception\RuntimeException;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
 use Ray\Di\Injector;
@@ -23,6 +24,7 @@ class RedisPoolEnvModuleTest extends TestCase
         putenv('TEST_REDIS_PASSWORD=secret');
         putenv('TEST_REDIS_DB_INDEX=1');
         putenv('TEST_REDIS_POOL_SIZE=4');
+        putenv('TEST_REDIS_BORROW_TIMEOUT=2.5');
     }
 
     protected function tearDown(): void
@@ -32,6 +34,7 @@ class RedisPoolEnvModuleTest extends TestCase
         putenv('TEST_REDIS_PASSWORD');
         putenv('TEST_REDIS_DB_INDEX');
         putenv('TEST_REDIS_POOL_SIZE');
+        putenv('TEST_REDIS_BORROW_TIMEOUT');
     }
 
     public function testModuleCanBeInstantiated(): void
@@ -50,6 +53,19 @@ class RedisPoolEnvModuleTest extends TestCase
 
         $module = new RedisPoolEnvModule('TEST_REDIS_HOST');
         new Injector($module);
+    }
+
+    public function testMissingEnvExceptionExtendsPackageRuntimeException(): void
+    {
+        putenv('TEST_REDIS_HOST');
+
+        try {
+            $module = new RedisPoolEnvModule('TEST_REDIS_HOST');
+            new Injector($module);
+            $this->fail('MissingEnvException was not thrown');
+        } catch (MissingEnvException $e) {
+            $this->assertInstanceOf(RuntimeException::class, $e);
+        }
     }
 
     public function testRedisPoolBinding(): void
@@ -95,5 +111,81 @@ class RedisPoolEnvModuleTest extends TestCase
         $pool = $injector->getInstance(RedisPool::class);
 
         $this->assertInstanceOf(RedisPool::class, $pool);
+    }
+
+    public function testCustomBorrowTimeoutFromEnv(): void
+    {
+        $module = new RedisPoolEnvModule(
+            'TEST_REDIS_HOST',
+            '',
+            '',
+            '',
+            '',
+            6379,
+            0,
+            64,
+            'TEST_REDIS_BORROW_TIMEOUT',
+        );
+        $injector = new Injector($module);
+
+        $borrowTimeout = $injector->getInstance('', 'redis_pool_borrow_timeout');
+
+        $this->assertSame(2.5, $borrowTimeout);
+    }
+
+    public function testDefaultBorrowTimeoutWhenEnvUnset(): void
+    {
+        $module = new RedisPoolEnvModule('TEST_REDIS_HOST');
+        $injector = new Injector($module);
+
+        $borrowTimeout = $injector->getInstance('', 'redis_pool_borrow_timeout');
+
+        $this->assertSame(5.0, $borrowTimeout);
+    }
+
+    public function testInvalidBorrowTimeoutFromEnvFallsBackToDefault(): void
+    {
+        putenv('TEST_REDIS_BORROW_TIMEOUT=not-a-number');
+
+        $module = new RedisPoolEnvModule(
+            'TEST_REDIS_HOST',
+            '',
+            '',
+            '',
+            '',
+            6379,
+            0,
+            64,
+            'TEST_REDIS_BORROW_TIMEOUT',
+            3.0,
+        );
+        $injector = new Injector($module);
+
+        $borrowTimeout = $injector->getInstance('', 'redis_pool_borrow_timeout');
+
+        $this->assertSame(3.0, $borrowTimeout);
+    }
+
+    public function testNegativeBorrowTimeoutFromEnvFallsBackToDefault(): void
+    {
+        putenv('TEST_REDIS_BORROW_TIMEOUT=-1');
+
+        $module = new RedisPoolEnvModule(
+            'TEST_REDIS_HOST',
+            '',
+            '',
+            '',
+            '',
+            6379,
+            0,
+            64,
+            'TEST_REDIS_BORROW_TIMEOUT',
+            3.0,
+        );
+        $injector = new Injector($module);
+
+        $borrowTimeout = $injector->getInstance('', 'redis_pool_borrow_timeout');
+
+        $this->assertSame(3.0, $borrowTimeout);
     }
 }

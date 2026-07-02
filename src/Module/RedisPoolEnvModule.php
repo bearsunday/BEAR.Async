@@ -24,6 +24,7 @@ use function sprintf;
  *   - REDIS_PASSWORD: Redis password (optional)
  *   - REDIS_DB_INDEX: Redis database index (optional, default: 0)
  *   - REDIS_POOL_SIZE: Pool size (optional, default: 64)
+ *   - REDIS_POOL_BORROW_TIMEOUT: Seconds to wait for a pooled connection (optional, default: 5.0)
  *
  * Usage:
  *   class AppModule extends AbstractModule
@@ -51,6 +52,8 @@ final class RedisPoolEnvModule extends AbstractModule
         private readonly int $defaultPort = 6379,
         private readonly int $defaultDbIndex = 0,
         private readonly int $defaultPoolSize = 64,
+        private readonly string $borrowTimeoutEnv = '',
+        private readonly float $defaultBorrowTimeout = 5.0,
     ) {
         parent::__construct();
     }
@@ -62,6 +65,7 @@ final class RedisPoolEnvModule extends AbstractModule
         $auth = $this->authEnv !== '' ? (string) getenv($this->authEnv) : '';
         $dbIndex = $this->dbIndexEnv !== '' ? (int) getenv($this->dbIndexEnv) : $this->defaultDbIndex;
         $poolSize = $this->poolSizeEnv !== '' ? (int) getenv($this->poolSizeEnv) : $this->defaultPoolSize;
+        $borrowTimeout = $this->borrowTimeoutEnv !== '' ? (float) getenv($this->borrowTimeoutEnv) : $this->defaultBorrowTimeout;
 
         if ($port <= 0) {
             $port = $this->defaultPort;
@@ -71,11 +75,16 @@ final class RedisPoolEnvModule extends AbstractModule
             $poolSize = $this->defaultPoolSize;
         }
 
+        if ($borrowTimeout <= 0) {
+            $borrowTimeout = $this->defaultBorrowTimeout;
+        }
+
         $this->bind()->annotatedWith('redis_pool_host')->toInstance($host);
         $this->bind()->annotatedWith('redis_pool_port')->toInstance($port);
         $this->bind()->annotatedWith('redis_pool_auth')->toInstance($auth);
         $this->bind()->annotatedWith('redis_pool_db_index')->toInstance($dbIndex);
         $this->bind()->annotatedWith('redis_pool_size')->toInstance($poolSize);
+        $this->bind()->annotatedWith('redis_pool_borrow_timeout')->toInstance($borrowTimeout);
 
         $this->bind(RedisPool::class)->toProvider(RedisPoolProvider::class)->in(Scope::SINGLETON);
         $this->bind(Redis::class)->toProvider(PooledRedisProvider::class);
