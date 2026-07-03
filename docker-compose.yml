@@ -2,6 +2,19 @@ services:
   php:
     image: ghcr.io/bearsunday/bear-async-php:latest
     build: .
+    # The pre-built benchmark image can carry a Composer older than 2.2.7, whose
+    # github-oauth validation rejects GitHub Actions "ghs_" tokens (underscore /
+    # uppercase) with "contains invalid characters", breaking `composer install`
+    # once COMPOSER_AUTH is passed in. Self-update Composer before running any
+    # `composer` command -- with COMPOSER_AUTH unset for the self-update itself so
+    # the stale binary can't reject the token before it upgrades. All other
+    # commands pass straight through to the image's default entrypoint.
+    # ($$ escapes $ so Compose forwards a literal $1/$@ to the container shell.)
+    entrypoint:
+      - sh
+      - -c
+      - 'if [ "$$1" = composer ]; then env -u COMPOSER_AUTH composer self-update --2; fi; exec docker-php-entrypoint "$$@"'
+      - --
     volumes:
       - .:/app
     working_dir: /app
