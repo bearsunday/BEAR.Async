@@ -402,9 +402,24 @@ public function testPoolTimeout(): void
         // Borrow the only connection
         $pdo = $borrower->borrow();
 
-        // Try to borrow another in a different coroutine - should timeout
-        $this->expectException(PoolTimeoutException::class);
-        Coroutine::create(fn () => $borrower->borrow());
+        // Try to borrow another in a different coroutine — should timeout.
+        // Use WaitGroup to synchronize: Coroutine::create() is fire-and-forget,
+        // so we must wait for the child to finish and capture its exception.
+        $thrown = null;
+        $wg = new WaitGroup();
+        $wg->add();
+        Coroutine::create(function () use ($borrower, $wg, &$thrown): void {
+            try {
+                $borrower->borrow();
+            } catch (PoolTimeoutException $e) {
+                $thrown = $e;
+            } finally {
+                $wg->done();
+            }
+        });
+        $wg->wait();
+
+        $this->assertInstanceOf(PoolTimeoutException::class, $thrown);
     });
 }
 ```
