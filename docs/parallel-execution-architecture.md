@@ -404,8 +404,7 @@ operations, but the win is conditional on the runtime hosting model:
   (thread spawn, autoload, DI container build) is rebuilt on every request,
   so cold one-shot CLI numbers in [Benchmark Results](benchmark-results.md)
   are the relevant reference, not the amortized model above.
-- **Cost-effectiveness** depends on this same distinction: pool-size and
-  instance-sizing decisions should be validated against measured results for
-  your actual hosting model, not the theoretical projections in this
-  document alone.
-- **Simple configuration** with automatic CPU-core detection for pool size.
+- **Cost-effectiveness** depends on this same distinction: pool-size
+  (auto-detected from CPU cores by default) and instance-sizing decisions
+  should be validated against measured results for your actual hosting model,
+  not the theoretical projections in this document alone.
