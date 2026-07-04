@@ -127,30 +127,16 @@ final class ParallelAsync implements AsyncInterface
             }
         }
 
-        /** @var array<int, Throwable> $errors */
-        $errors = [];
-        foreach ($futures as $i => $future) {
-            try {
+        $this->joinFutures(
+            $futures,
+            $taskList,
+            /** @param array<string, mixed>|null $result */
+            function (int $i, mixed $result) use ($taskList): void {
                 /** @var array<string, mixed>|null $result */
-                $result = $future->value();
                 $taskList[$i]->setResult($result);
-            } catch (Throwable $e) {
-                $errors[$i] = $e;
-            }
-        }
-
-        foreach ($taskList as $i => $task) {
-            if (isset($futures[$i]) || isset($errors[$i])) {
-                continue;
-            }
-
-            $uri = (string) $task->getRequest()->resourceObject->uri;
-            $errors[$i] = new TaskNotDispatchedException(sprintf('Task not dispatched to worker Runtime for URI: %s', $uri));
-        }
-
-        if ($errors !== []) {
-            throw $errors[array_key_first($errors)];
-        }
+            },
+            fn (RequestTask $task): string => (string) $task->getRequest()->resourceObject->uri,
+        );
     }
 
     /** {@inheritDoc} */
@@ -209,29 +195,15 @@ final class ParallelAsync implements AsyncInterface
         }
 
         $results = [];
-        /** @var array<int, Throwable> $errors */
-        $errors = [];
-        foreach ($futures as $i => $future) {
-            try {
+        $this->joinFutures(
+            $futures,
+            $requestList,
+            function (int $i, mixed $result) use (&$results, $keys): void {
                 /** @var string $result */
-                $result = $future->value();
                 $results[$keys[$i]] = $result;
-            } catch (Throwable $e) {
-                $errors[$i] = $e;
-            }
-        }
-
-        foreach ($requestList as $i => $request) {
-            if (isset($futures[$i]) || isset($errors[$i])) {
-                continue;
-            }
-
-            $errors[$i] = new TaskNotDispatchedException(sprintf('Task not dispatched to worker Runtime for URI: %s', $request->toUri()));
-        }
-
-        if ($errors !== []) {
-            throw $errors[array_key_first($errors)];
-        }
+            },
+            fn (AsyncRequest $request): string => $request->toUri(),
+        );
 
         return $results;
     }
@@ -276,6 +248,51 @@ final class ParallelAsync implements AsyncInterface
         }
 
         return $links;
+    }
+
+    /**
+     * Join all futures, collect errors, detect not-dispatched tasks, and rethrow the first error
+     *
+     * Shared by {@see __invoke()} and {@see execute()}. Every dispatched future is
+     * always joined (value() consumed). Tasks whose Runtime::run() returned null
+     * (never dispatched) are surfaced as {@see TaskNotDispatchedException}. If
+     * any Throwable was caught, the first one (in task iteration order) is
+     * rethrown, preserving its original type.
+     *
+     * @template T of object
+     *
+     * @param array<int, Future>        $futures        Position => Future (may have gaps)
+     * @param list<T>                   $tasks          Position => task/request in iteration order
+     * @param callable(int, mixed):void $onResult       Called with (position, future value) on success
+     * @param callable(T): string       $getUriForError Extract URI string from a task for the error message
+     *
+     * @throws Throwable The first error encountered, or TaskNotDispatchedException
+     */
+    private function joinFutures(array $futures, array $tasks, callable $onResult, callable $getUriForError): void
+    {
+        /** @var array<int, Throwable> $errors */
+        $errors = [];
+        foreach ($futures as $i => $future) {
+            try {
+                $onResult($i, $future->value());
+            } catch (Throwable $e) {
+                $errors[$i] = $e;
+            }
+        }
+
+        foreach ($tasks as $i => $task) {
+            if (isset($futures[$i]) || isset($errors[$i])) {
+                continue;
+            }
+
+            $errors[$i] = new TaskNotDispatchedException(
+                sprintf('Task not dispatched to worker Runtime for URI: %s', $getUriForError($task)),
+            );
+        }
+
+        if ($errors !== []) {
+            throw $errors[array_key_first($errors)];
+        }
     }
 
     private function initializePool(): void
