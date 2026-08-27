@@ -350,14 +350,20 @@ ext-parallel worker pool above. Guidance:
   connections; see [Benchmark Results](benchmark-results.md#when-to-choose-parallel)
   for measured throughput and MySQL connection counts at different
   `PDO_POOL_SIZE` values.
-- Borrowing blocks for at most `borrowTimeout` seconds (default 5.0,
-  configurable per module) before throwing `PoolTimeoutException`, so pool
-  exhaustion fails fast instead of hanging the request indefinitely.
-- Every PDO checkout is pinged (`SELECT 1`) before being handed out; a dead
-  connection (e.g. after a MySQL restart or `wait_timeout`) is discarded and
-  retried once, so the pool self-heals instead of poisoning every borrower
-  with a connection that will fail on first use. If no live connection can
-  be found, `StalePooledConnectionException` is thrown.
+- Waiting for a free slot blocks for at most `borrowTimeout` seconds
+  (default 5.0, configurable per module) before throwing
+  `PoolTimeoutException`, so pool exhaustion fails fast instead of hanging
+  the request indefinitely. When the pool dials a brand-new connection
+  (initial fill, or the replacement dial after a discard), that connect is
+  bounded by the driver's connect timeout instead, and a failed dial
+  surfaces as a raw driver exception.
+- Every checkout is pinged (`SELECT 1` for PDO, `PING` for Redis) before
+  being handed out; a dead connection (e.g. after a server restart or idle
+  timeout) is discarded and retried once, so the pool self-heals instead of
+  poisoning every borrower with a connection that will fail on first use.
+  If the retry is also dead, `StalePooledConnectionException` is thrown
+  with the driver error from the last ping attached as the previous
+  exception.
 - Redis connections are cached per coroutine the same way PDO connections
   are, avoiding redundant pool checkouts within a single coroutine.
 

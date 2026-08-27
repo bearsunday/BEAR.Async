@@ -14,6 +14,7 @@ use PDOException;
 use Swoole\Coroutine;
 use Swoole\Database\PDOPool;
 use Swoole\Database\PDOProxy;
+use Throwable;
 
 use function assert;
 use function sprintf;
@@ -26,6 +27,12 @@ use function sprintf;
  * return it exactly once via a single defer(). This class centralizes that
  * logic, including liveness checking (ping-on-checkout) so a dead connection
  * (e.g. after a MySQL restart or wait_timeout) never poisons the pool.
+ *
+ * Timing note: borrowTimeout only bounds waiting for a free slot. When the
+ * pool dials a brand-new connection (initial fill, or the synchronous
+ * replacement dial inside put(null) after a discard), that connect is
+ * bounded by the driver's connect timeout instead, and a failed dial
+ * surfaces as a raw PDOException from checkout.
  *
  * @internal
  */
@@ -54,6 +61,7 @@ final class PooledPdoBorrower
      * @throws PoolTimeoutException           if timeout occurs while waiting for a connection
      * @throws PdoProxyExtractionException    if the underlying PDO cannot be read from the proxy
      * @throws StalePooledConnectionException if the pool keeps handing out dead connections
+     * @throws PDOException                   if the pool dials a new connection and the connect fails
      */
     public function borrow(): PDO
     {
@@ -97,27 +105,28 @@ final class PooledPdoBorrower
      * @throws PoolTimeoutException
      * @throws PdoProxyExtractionException
      * @throws StalePooledConnectionException
+     * @throws PDOException
      */
     private function checkoutLive(): array
     {
         [$proxy, $pdo] = $this->checkoutOnce();
-        if ($this->isAlive($pdo)) {
+        $error = $this->ping($pdo);
+        if ($error === null) {
             return [$proxy, $pdo];
         }
 
         // Discard the dead proxy: free the slot instead of returning a dead connection.
-        $this->pool->put(null);
+        $this->discard();
 
         [$proxy, $pdo] = $this->checkoutOnce();
-        if ($this->isAlive($pdo)) {
+        $error = $this->ping($pdo);
+        if ($error === null) {
             return [$proxy, $pdo];
         }
 
-        $this->pool->put(null);
+        $this->discard();
 
-        throw new StalePooledConnectionException(
-            'PDO pool exhausted: pooled connections are stale (e.g. the database was restarted)',
-        );
+        throw new StalePooledConnectionException('PDO pool', 0, $error);
     }
 
     /**
@@ -127,6 +136,7 @@ final class PooledPdoBorrower
      *
      * @throws PoolTimeoutException
      * @throws PdoProxyExtractionException
+     * @throws PDOException
      */
     private function checkoutOnce(): array
     {
@@ -143,12 +153,33 @@ final class PooledPdoBorrower
         return [$proxy, PdoProxyExtractor::extract($proxy)];
     }
 
-    private function isAlive(PDO $pdo): bool
+    private function ping(PDO $pdo): PDOException|null
     {
         try {
-            return $pdo->query('SELECT 1') !== false;
-        } catch (PDOException) {
-            return false;
+            if ($pdo->query('SELECT 1') === false) {
+                return new PDOException('SELECT 1 returned false');
+            }
+
+            return null;
+        } catch (PDOException $e) {
+            return $e;
+        }
+    }
+
+    /**
+     * Free the dead connection's slot
+     *
+     * ConnectionPool::put(null) decrements the connection count and then
+     * synchronously dials a replacement; if that dial fails it throws the
+     * raw driver error with the slot already freed. The failure is
+     * swallowed here — the next checkout surfaces the connect error itself.
+     */
+    private function discard(): void
+    {
+        try {
+            $this->pool->put(null);
+        } catch (Throwable) {
+            // Next checkout reports the failed replacement dial.
         }
     }
 }

@@ -168,15 +168,16 @@ class AppModule extends AbstractModule
 
 `PdoPoolModule`/`RedisPoolModule` (and their env-driven counterparts) accept
 a `borrowTimeout` (default 5.0s, bound as `pdo_pool_borrow_timeout` /
-`redis_pool_borrow_timeout`). Borrowing from an exhausted pool fails fast
-with `PoolTimeoutException` instead of blocking forever. Every PDO checkout
-is pinged first (`SELECT 1`); a dead connection (e.g. after a MySQL restart
-or `wait_timeout`) is discarded and retried once, so the pool self-heals
-instead of handing out connections that will fail on first use — if it
-still cannot find a live connection, it throws
-`StalePooledConnectionException`. Redis connections are cached per
-coroutine the same way PDO connections are, so repeated injections within
-one coroutine reuse the same checkout instead of exhausting the pool.
+`redis_pool_borrow_timeout`). Waiting for a free slot in an exhausted pool
+fails fast with `PoolTimeoutException` instead of blocking forever. Every
+checkout is pinged first (`SELECT 1` for PDO, `PING` for Redis); a dead
+connection (e.g. after a server restart or idle timeout) is discarded and
+retried once, so the pool self-heals instead of handing out connections
+that will fail on first use — if the retry is also dead, it throws
+`StalePooledConnectionException` with the driver error attached as the
+previous exception. Redis connections are cached per coroutine the same
+way PDO connections are, so repeated injections within one coroutine reuse
+the same checkout instead of exhausting the pool.
 
 Size the pool to roughly `embed_count * request_concurrency` so that one
 dashboard-style request with several embeds does not starve concurrent

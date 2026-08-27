@@ -9,6 +9,7 @@ use BEAR\Async\Exception\PdoProxyExtractionException;
 use BEAR\Async\Exception\PoolTimeoutException;
 use BEAR\Async\Exception\StalePooledConnectionException;
 use PDO;
+use PDOException;
 use Ray\Di\Di\Named;
 use Ray\Di\ProviderInterface;
 use Swoole\Database\PDOPool;
@@ -45,6 +46,7 @@ final class PooledPdoProvider implements ProviderInterface
      * @throws PoolTimeoutException           if timeout occurs while waiting for a connection
      * @throws PdoProxyExtractionException    if the underlying PDO cannot be read from the proxy
      * @throws StalePooledConnectionException if the pool keeps handing out dead connections
+     * @throws PDOException                   if the pool dials a new connection and the connect fails
      *
      * @codeCoverageIgnore Requires Swoole coroutine context
      */

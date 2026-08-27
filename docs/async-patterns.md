@@ -97,38 +97,53 @@ final class PdoPoolProvider implements ProviderInterface
 
 **Problem**: `Swoole\Database\PDOPool` does not validate a connection when it hands it out. If the database restarts, fails over, or closes an idle connection (MySQL `wait_timeout`), the pool can keep returning a dead `PDOProxy` indefinitely, and every borrower gets a `PDOException` on first use.
 
-**Solution**: `PooledPdoBorrower` pings every checked-out connection with `SELECT 1` before handing it to the caller. If the connection is dead, it is discarded (`$pool->put(null)` frees the slot without returning a broken connection) and checkout is retried once. If the retry is also dead, a `StalePooledConnectionException` surfaces the problem instead of looping forever.
+**Solution**: `PooledPdoBorrower` pings every checked-out connection with `SELECT 1` before handing it to the caller (`PooledRedisProvider` mirrors this with `PING`). If the connection is dead, it is discarded and checkout is retried once. If the retry is also dead, a `StalePooledConnectionException` — with the driver error from the last ping attached as the previous exception — surfaces the problem instead of looping forever.
+
+A discard is `$pool->put(null)`: Swoole decrements the connection count and then synchronously dials a replacement. If that dial fails, the slot is already freed but the raw driver error propagates — so `discard()` swallows it and lets the next checkout report the connect failure.
 
 ```php
 // src/PooledPdoBorrower.php
 private function checkoutLive(): array
 {
     [$proxy, $pdo] = $this->checkoutOnce();
-    if ($this->isAlive($pdo)) {
+    $error = $this->ping($pdo);
+    if ($error === null) {
         return [$proxy, $pdo];
     }
 
     // Discard the dead proxy: free the slot instead of returning a dead connection.
-    $this->pool->put(null);
+    $this->discard();
 
     [$proxy, $pdo] = $this->checkoutOnce();
-    if ($this->isAlive($pdo)) {
+    $error = $this->ping($pdo);
+    if ($error === null) {
         return [$proxy, $pdo];
     }
 
-    $this->pool->put(null);
+    $this->discard();
 
-    throw new StalePooledConnectionException(
-        'PDO pool exhausted: pooled connections are stale (e.g. the database was restarted)',
-    );
+    throw new StalePooledConnectionException('PDO pool', 0, $error);
 }
 
-private function isAlive(PDO $pdo): bool
+private function ping(PDO $pdo): PDOException|null
 {
     try {
-        return $pdo->query('SELECT 1') !== false;
-    } catch (PDOException) {
-        return false;
+        if ($pdo->query('SELECT 1') === false) {
+            return new PDOException('SELECT 1 returned false');
+        }
+
+        return null;
+    } catch (PDOException $e) {
+        return $e;
+    }
+}
+
+private function discard(): void
+{
+    try {
+        $this->pool->put(null);
+    } catch (Throwable) {
+        // Next checkout reports the failed replacement dial.
     }
 }
 ```
@@ -317,17 +332,20 @@ return PdoProxyExtractor::extract($proxy);
 
 // Good: ping-on-checkout, discard-and-retry once (PooledPdoBorrower::checkoutLive())
 [$proxy, $pdo] = $this->checkoutOnce();
-if ($this->isAlive($pdo)) {
+if ($this->ping($pdo) === null) {
     return [$proxy, $pdo];
 }
 
-$this->pool->put(null); // discard the dead connection, free the slot
+$this->discard(); // put(null): free the slot, swallow the replacement dial's error
 [$proxy, $pdo] = $this->checkoutOnce();
-if ($this->isAlive($pdo)) {
+$error = $this->ping($pdo);
+if ($error === null) {
     return [$proxy, $pdo];
 }
 
-throw new StalePooledConnectionException(/* ... */);
+$this->discard();
+
+throw new StalePooledConnectionException('PDO pool', 0, $error);
 ```
 
 ### 3. Missing WaitGroup done() or catch() on Exception
