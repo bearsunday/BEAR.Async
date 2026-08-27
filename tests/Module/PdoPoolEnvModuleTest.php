@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BEAR\Async\Module;
 
+use BEAR\Async\Exception\InvalidEnvException;
 use BEAR\Async\Exception\MissingEnvException;
 use BEAR\Async\Exception\RuntimeException;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
@@ -153,9 +154,9 @@ class PdoPoolEnvModuleTest extends TestCase
         $this->assertSame(5.0, $borrowTimeout);
     }
 
-    public function testInvalidBorrowTimeoutFromEnvFallsBackToDefault(): void
+    public function testEmptyBorrowTimeoutEnvValueFallsBackToDefault(): void
     {
-        putenv('TEST_PDO_BORROW_TIMEOUT=not-a-number');
+        putenv('TEST_PDO_BORROW_TIMEOUT=');
 
         $module = new PdoPoolEnvModule(
             'TEST_PDO_DSN',
@@ -173,11 +174,13 @@ class PdoPoolEnvModuleTest extends TestCase
         $this->assertSame(3.0, $borrowTimeout);
     }
 
-    public function testNegativeBorrowTimeoutFromEnvFallsBackToDefault(): void
+    public function testInvalidBorrowTimeoutFromEnvThrows(): void
     {
-        putenv('TEST_PDO_BORROW_TIMEOUT=-1');
+        putenv('TEST_PDO_BORROW_TIMEOUT=not-a-number');
 
-        $module = new PdoPoolEnvModule(
+        $this->expectException(InvalidEnvException::class);
+
+        new Injector(new PdoPoolEnvModule(
             'TEST_PDO_DSN',
             'TEST_PDO_USER',
             'TEST_PDO_PASS',
@@ -185,11 +188,51 @@ class PdoPoolEnvModuleTest extends TestCase
             64,
             'TEST_PDO_BORROW_TIMEOUT',
             3.0,
-        );
-        $injector = new Injector($module);
+        ));
+    }
 
-        $borrowTimeout = $injector->getInstance('', 'pdo_pool_borrow_timeout');
+    public function testNegativeBorrowTimeoutFromEnvThrows(): void
+    {
+        putenv('TEST_PDO_BORROW_TIMEOUT=-1');
 
-        $this->assertSame(3.0, $borrowTimeout);
+        $this->expectException(InvalidEnvException::class);
+
+        new Injector(new PdoPoolEnvModule(
+            'TEST_PDO_DSN',
+            'TEST_PDO_USER',
+            'TEST_PDO_PASS',
+            '',
+            64,
+            'TEST_PDO_BORROW_TIMEOUT',
+            3.0,
+        ));
+    }
+
+    public function testZeroPoolSizeFromEnvThrows(): void
+    {
+        putenv('TEST_PDO_POOL_SIZE=0');
+
+        $this->expectException(InvalidEnvException::class);
+
+        new Injector(new PdoPoolEnvModule(
+            'TEST_PDO_DSN',
+            'TEST_PDO_USER',
+            'TEST_PDO_PASS',
+            'TEST_PDO_POOL_SIZE',
+        ));
+    }
+
+    public function testNonIntegerPoolSizeFromEnvThrows(): void
+    {
+        putenv('TEST_PDO_POOL_SIZE=4.5');
+
+        $this->expectException(InvalidEnvException::class);
+
+        new Injector(new PdoPoolEnvModule(
+            'TEST_PDO_DSN',
+            'TEST_PDO_USER',
+            'TEST_PDO_PASS',
+            'TEST_PDO_POOL_SIZE',
+        ));
     }
 }

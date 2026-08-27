@@ -5,16 +5,12 @@ declare(strict_types=1);
 namespace BEAR\Async\Module;
 
 use Aura\Sql\ExtendedPdoInterface;
-use BEAR\Async\Exception\MissingEnvException;
 use BEAR\Async\PdoPoolProvider;
 use BEAR\Async\PooledPdoProvider;
 use PDO;
 use Ray\Di\AbstractModule;
 use Ray\Di\Scope;
 use Swoole\Database\PDOPool;
-
-use function getenv;
-use function sprintf;
 
 /**
  * PDO connection pool module configured via environment variables
@@ -25,6 +21,10 @@ use function sprintf;
  *   - PDO_PASSWORD: Database password (required)
  *   - PDO_POOL_SIZE: Pool size (optional, default: 64)
  *   - PDO_POOL_BORROW_TIMEOUT: Seconds to wait for a pooled connection (optional, default: 5.0)
+ *
+ * Unset or empty optional variables fall back to their defaults; a variable
+ * set to a non-numeric or non-positive value throws InvalidEnvException at
+ * boot (see {@see PoolEnv}).
  *
  * Usage:
  *   class AppModule extends AbstractModule
@@ -57,19 +57,11 @@ final class PdoPoolEnvModule extends AbstractModule
 
     protected function configure(): void
     {
-        $dsn = $this->getRequiredEnv($this->dsnEnv);
-        $user = $this->getRequiredEnv($this->userEnv);
-        $pass = $this->getRequiredEnv($this->passEnv);
-        $poolSize = $this->poolSizeEnv !== '' ? (int) getenv($this->poolSizeEnv) : $this->defaultPoolSize;
-        $borrowTimeout = $this->borrowTimeoutEnv !== '' ? (float) getenv($this->borrowTimeoutEnv) : $this->defaultBorrowTimeout;
-
-        if ($poolSize <= 0) {
-            $poolSize = $this->defaultPoolSize;
-        }
-
-        if ($borrowTimeout <= 0) {
-            $borrowTimeout = $this->defaultBorrowTimeout;
-        }
+        $dsn = PoolEnv::required($this->dsnEnv);
+        $user = PoolEnv::required($this->userEnv);
+        $pass = PoolEnv::required($this->passEnv);
+        $poolSize = PoolEnv::int($this->poolSizeEnv, $this->defaultPoolSize, 1);
+        $borrowTimeout = PoolEnv::float($this->borrowTimeoutEnv, $this->defaultBorrowTimeout);
 
         $this->bind()->annotatedWith('pdo_pool_dsn')->toInstance($dsn);
         $this->bind()->annotatedWith('pdo_pool_user')->toInstance($user);
@@ -80,17 +72,5 @@ final class PdoPoolEnvModule extends AbstractModule
         $this->bind(PDOPool::class)->toProvider(PdoPoolProvider::class)->in(Scope::SINGLETON);
         $this->bind(PDO::class)->toProvider(PooledPdoProvider::class);
         $this->bind(ExtendedPdoInterface::class)->toProvider(PooledExtendedPdoProvider::class);
-    }
-
-    private function getRequiredEnv(string $name): string
-    {
-        $value = getenv($name);
-        if ($value === false) {
-            throw new MissingEnvException(
-                sprintf('Required environment variable "%s" is not set', $name),
-            );
-        }
-
-        return $value;
     }
 }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace BEAR\Async\Module;
 
-use BEAR\Async\Exception\MissingEnvException;
 use BEAR\Async\PooledRedisProvider;
 use BEAR\Async\RedisPoolProvider;
 use Ray\Di\AbstractModule;
@@ -13,7 +12,6 @@ use Redis;
 use Swoole\Database\RedisPool;
 
 use function getenv;
-use function sprintf;
 
 /**
  * Redis connection pool module configured via environment variables
@@ -25,6 +23,10 @@ use function sprintf;
  *   - REDIS_DB_INDEX: Redis database index (optional, default: 0)
  *   - REDIS_POOL_SIZE: Pool size (optional, default: 64)
  *   - REDIS_POOL_BORROW_TIMEOUT: Seconds to wait for a pooled connection (optional, default: 5.0)
+ *
+ * Unset or empty optional variables fall back to their defaults; a variable
+ * set to a non-numeric or out-of-range value throws InvalidEnvException at
+ * boot (see {@see PoolEnv}).
  *
  * Usage:
  *   class AppModule extends AbstractModule
@@ -60,24 +62,12 @@ final class RedisPoolEnvModule extends AbstractModule
 
     protected function configure(): void
     {
-        $host = $this->getRequiredEnv($this->hostEnv);
-        $port = $this->portEnv !== '' ? (int) getenv($this->portEnv) : $this->defaultPort;
+        $host = PoolEnv::required($this->hostEnv);
+        $port = PoolEnv::int($this->portEnv, $this->defaultPort, 1);
         $auth = $this->authEnv !== '' ? (string) getenv($this->authEnv) : '';
-        $dbIndex = $this->dbIndexEnv !== '' ? (int) getenv($this->dbIndexEnv) : $this->defaultDbIndex;
-        $poolSize = $this->poolSizeEnv !== '' ? (int) getenv($this->poolSizeEnv) : $this->defaultPoolSize;
-        $borrowTimeout = $this->borrowTimeoutEnv !== '' ? (float) getenv($this->borrowTimeoutEnv) : $this->defaultBorrowTimeout;
-
-        if ($port <= 0) {
-            $port = $this->defaultPort;
-        }
-
-        if ($poolSize <= 0) {
-            $poolSize = $this->defaultPoolSize;
-        }
-
-        if ($borrowTimeout <= 0) {
-            $borrowTimeout = $this->defaultBorrowTimeout;
-        }
+        $dbIndex = PoolEnv::int($this->dbIndexEnv, $this->defaultDbIndex, 0);
+        $poolSize = PoolEnv::int($this->poolSizeEnv, $this->defaultPoolSize, 1);
+        $borrowTimeout = PoolEnv::float($this->borrowTimeoutEnv, $this->defaultBorrowTimeout);
 
         $this->bind()->annotatedWith('redis_pool_host')->toInstance($host);
         $this->bind()->annotatedWith('redis_pool_port')->toInstance($port);
@@ -88,17 +78,5 @@ final class RedisPoolEnvModule extends AbstractModule
 
         $this->bind(RedisPool::class)->toProvider(RedisPoolProvider::class)->in(Scope::SINGLETON);
         $this->bind(Redis::class)->toProvider(PooledRedisProvider::class);
-    }
-
-    private function getRequiredEnv(string $name): string
-    {
-        $value = getenv($name);
-        if ($value === false) {
-            throw new MissingEnvException(
-                sprintf('Required environment variable "%s" is not set', $name),
-            );
-        }
-
-        return $value;
     }
 }
