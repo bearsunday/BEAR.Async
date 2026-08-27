@@ -29,7 +29,7 @@ interface AsyncInterface
      * Used by PendingRequests to execute pending embed requests.
      * Each request is invoked and rendered to string in parallel.
      *
-     * Requests are keyed by an opaque per-request key (AbstractRequest::hash()).
+     * Requests are keyed by an opaque per-request key (AsyncRequest::hash()).
      * Implementations MUST key the returned views by the same input keys.
      *
      * @param array<string, AsyncRequest> $requests Requests keyed by request hash

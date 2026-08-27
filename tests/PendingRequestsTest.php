@@ -10,9 +10,11 @@ use BEAR\Async\Fake\FakeInvoker;
 use BEAR\Async\Fake\FakePendingResourceProvider;
 use BEAR\Async\Fake\FakeResource;
 use BEAR\Async\Fake\FakeResourceObject;
+use BEAR\Async\Fake\FakeSwooleThrowingInvoker;
 use BEAR\Resource\Method;
 use BEAR\Resource\Request;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 class PendingRequestsTest extends TestCase
 {
@@ -187,6 +189,83 @@ class PendingRequestsTest extends TestCase
 
         // Resolves under the new (rekeyed) hash without throwing.
         $this->assertNotEmpty((string) $asyncRequest);
+    }
+
+    public function testDirectInvokeThenToStringExecutesOnce(): void
+    {
+        $ro = new FakeResourceObject('app://self/user');
+        $ro->body = ['name' => 'Test'];
+        $invoker = new FakeInvoker($ro);
+        $request = new Request($invoker, $ro, Method::GET, []);
+
+        $pendingRequests = new PendingRequests(new SyncAsync());
+        $asyncRequest = new AsyncRequest($request, $pendingRequests);
+
+        // Direct invocation (also the path behind __get/offsetGet) must
+        // remove the request from the batch; rendering later reuses the
+        // already-invoked ResourceObject instead of executing again.
+        $result = $asyncRequest();
+
+        $this->assertSame(['name' => 'Test'], $result->body);
+        $this->assertNotEmpty((string) $asyncRequest);
+        $this->assertSame(1, $invoker->invokeCount);
+    }
+
+    public function testDirectInvokeWithQueryRekeysAndResolves(): void
+    {
+        $ro = new FakeResourceObject('app://self/user');
+        $ro->body = ['name' => 'Test'];
+        $invoker = new FakeInvoker($ro);
+        $request = new Request($invoker, $ro, Method::GET, []);
+
+        $pendingRequests = new PendingRequests(new SyncAsync());
+        $asyncRequest = new AsyncRequest($request, $pendingRequests);
+        $originalKey = $asyncRequest->hash();
+
+        $asyncRequest(['id' => '9']);
+
+        $this->assertNotSame($originalKey, $asyncRequest->hash());
+        $this->assertStringContainsString('id=9', $asyncRequest->toUri());
+        $this->assertNotEmpty((string) $asyncRequest);
+        $this->assertSame(1, $invoker->invokeCount);
+    }
+
+    public function testFailedBatchIsAbandonedNotReExecuted(): void
+    {
+        $ro = new FakeResourceObject('app://self/ok');
+        $ro->body = ['name' => 'ok'];
+        $okInvoker = new FakeInvoker($ro);
+        $okRequest = new Request($okInvoker, $ro, Method::GET, []);
+
+        $failure = new RuntimeException('embed failed');
+        $failInvoker = new FakeSwooleThrowingInvoker($failure);
+        $failRequest = new Request($failInvoker, new FakeResourceObject('app://self/fail'), Method::GET, []);
+
+        $pendingRequests = new PendingRequests(new SyncAsync());
+        $okAsync = new AsyncRequest($okRequest, $pendingRequests);
+        $failAsync = new AsyncRequest($failRequest, $pendingRequests);
+
+        try {
+            (string) $okAsync;
+            $this->fail('The batch failure did not propagate');
+        } catch (RuntimeException $e) {
+            $this->assertSame($failure, $e);
+        }
+
+        // The request that completed before the batch failed still resolves,
+        // without executing again.
+        $this->assertNotEmpty((string) $okAsync);
+
+        // The failed request misses — and, critically, the batch (with its
+        // side effects) is not replayed to look for it.
+        try {
+            (string) $failAsync;
+            $this->fail('ResultNotFoundException was not thrown');
+        } catch (ResultNotFoundException) {
+        }
+
+        $this->assertSame(1, $okInvoker->invokeCount);
+        $this->assertSame(1, $failInvoker->invokeCount);
     }
 
     public function testGetResultMissThrowsResultNotFoundExceptionWithUri(): void

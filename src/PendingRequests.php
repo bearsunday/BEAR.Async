@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BEAR\Async;
 
+use BEAR\Resource\ResourceObject;
 use BEAR\Async\Exception\ResultNotFoundException;
 
 use function sprintf;
@@ -13,9 +14,8 @@ use function sprintf;
  *
  * Collects pending AsyncRequests and executes them all in parallel
  * when any result is requested. Results are cached by request identity
- * (AbstractRequest::hash()), which — unlike the URI alone — also accounts
- * for method and links, so two requests to the same URI with different
- * link* configurations are never conflated.
+ * (AsyncRequest::hash() — method + URI + links), so two requests to the
+ * same URI with different link* configurations are never conflated.
  *
  * Flow:
  * 1. AsyncRequest registers itself via add()
@@ -23,14 +23,26 @@ use function sprintf;
  * 3. getResult() triggers executePending() if result not cached
  * 4. All pending requests execute in parallel
  * 5. Results cached and returned
+ *
+ * A request invoked directly (`$request()`) reports its ResourceObject via
+ * complete(); it leaves the pending batch and its later __toString() renders
+ * from that object instead of executing again.
+ *
+ * If the batch throws, it is abandoned: the pending entries were already
+ * consumed, so a later getResult() never replays the batch's side effects.
+ * Requests that completed in-process before the failure still resolve via
+ * complete(); the rest raise ResultNotFoundException.
  */
 final class PendingRequests
 {
-    /** @var array<string, AsyncRequest> AbstractRequest::hash() => AsyncRequest */
+    /** @var array<string, AsyncRequest> AsyncRequest::hash() => AsyncRequest */
     private array $pending = [];
 
-    /** @var array<string, string> AbstractRequest::hash() => rendered view string */
+    /** @var array<string, string> AsyncRequest::hash() => rendered view string */
     private array $results = [];
+
+    /** @var array<string, ResourceObject> AsyncRequest::hash() => directly invoked ResourceObject, rendered lazily */
+    private array $invoked = [];
 
     public function __construct(
         private readonly AsyncInterface $async,
@@ -40,7 +52,7 @@ final class PendingRequests
     public function add(AsyncRequest $request): void
     {
         $key = $request->hash();
-        if (! isset($this->results[$key]) && ! isset($this->pending[$key])) {
+        if (! isset($this->results[$key]) && ! isset($this->invoked[$key]) && ! isset($this->pending[$key])) {
             $this->pending[$key] = $request;
         }
     }
@@ -64,14 +76,36 @@ final class PendingRequests
             unset($this->pending[$previousKey]);
         }
 
-        if (! isset($this->results[$newKey]) && ! isset($this->pending[$newKey])) {
+        if (! isset($this->results[$newKey]) && ! isset($this->invoked[$newKey]) && ! isset($this->pending[$newKey])) {
             $this->pending[$newKey] = $request;
         }
+    }
+
+    /**
+     * Record the ResourceObject of a directly invoked request
+     *
+     * Called from AsyncRequest::__invoke() so the batch does not execute the
+     * request again. An existing batch result wins over the invoked object.
+     */
+    public function complete(AsyncRequest $request, ResourceObject $ro): void
+    {
+        $key = $request->hash();
+        unset($this->pending[$key]);
+        if (isset($this->results[$key])) {
+            return;
+        }
+
+        $this->invoked[$key] = $ro;
     }
 
     public function getResult(AsyncRequest $request): string
     {
         $key = $request->hash();
+        if (! isset($this->results[$key]) && isset($this->invoked[$key])) {
+            $this->results[$key] = (string) $this->invoked[$key];
+            unset($this->invoked[$key]);
+        }
+
         if (! isset($this->results[$key])) {
             $this->executePending();
         }
@@ -85,11 +119,17 @@ final class PendingRequests
             return;
         }
 
-        foreach ($this->async->execute($this->pending) as $key => $result) {
-            $this->results[$key] = $result;
-        }
-
+        // Consume the batch before executing: the adapters run each request
+        // via AsyncRequest::__invoke(), which re-enters this collector
+        // (complete(), nested embeds adding new pending entries, nested
+        // renders flushing them), and a failed batch must not be replayed.
+        $batch = $this->pending;
         $this->pending = [];
+
+        foreach ($this->async->execute($batch) as $key => $result) {
+            $this->results[$key] = $result;
+            unset($this->invoked[$key]);
+        }
     }
 
     /**
@@ -103,5 +143,6 @@ final class PendingRequests
     {
         $this->pending = [];
         $this->results = [];
+        $this->invoked = [];
     }
 }

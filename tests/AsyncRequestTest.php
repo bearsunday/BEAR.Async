@@ -165,9 +165,7 @@ class AsyncRequestTest extends TestCase
 
     public function testJsonSerializeUsesPendingBatch(): void
     {
-        // Uses DeferredRequest (as AsyncEmbedInterceptor does in production)
-        // so hash() discriminates by URI; a plain Request's inherited
-        // hash() does not include the URI, only resourceObject::class.
+        // Uses DeferredRequest (as AsyncEmbedInterceptor does in production).
         $provider = new FakePendingResourceProvider(new FakeResource());
 
         $request1 = new DeferredRequest($provider, Method::GET, 'app://self/one');
@@ -243,16 +241,52 @@ class AsyncRequestTest extends TestCase
         $this->assertSame(1, $async->executeCount);
     }
 
-    public function testHashDelegatesToInnerRequest(): void
+    public function testHashMatchesInnerDeferredRequestHash(): void
+    {
+        $provider = new FakePendingResourceProvider(new FakeResource());
+        $request = new DeferredRequest($provider, Method::GET, 'app://self/user');
+
+        $pendingRequests = new PendingRequests(new SyncAsync());
+        $asyncRequest = new AsyncRequest($request, $pendingRequests);
+
+        // Same formula as DeferredRequest::hash(): pre-registered
+        // DeferredRequest keys and AsyncRequest keys must dedupe together.
+        $this->assertSame($request->hash(), $asyncRequest->hash());
+    }
+
+    public function testHashDistinguishesPlainRequestsToDifferentUris(): void
+    {
+        $roOne = new FakeResourceObject('app://self/one');
+        $roTwo = new FakeResourceObject('app://self/two');
+        $requestOne = new Request(new FakeInvoker($roOne), $roOne, Method::GET, []);
+        $requestTwo = new Request(new FakeInvoker($roTwo), $roTwo, Method::GET, []);
+
+        // The inherited AbstractRequest::hash() keys by resourceObject class
+        // and would conflate these two.
+        $this->assertSame($requestOne->hash(), $requestTwo->hash());
+
+        $pendingRequests = new PendingRequests(new SyncAsync());
+        $asyncOne = new AsyncRequest($requestOne, $pendingRequests);
+        $asyncTwo = new AsyncRequest($requestTwo, $pendingRequests);
+
+        $this->assertNotSame($asyncOne->hash(), $asyncTwo->hash());
+    }
+
+    public function testOffsetGetInvokesOnceAndToStringReusesResult(): void
     {
         $ro = new FakeResourceObject('app://self/user');
+        $ro->body = ['name' => 'Test'];
         $invoker = new FakeInvoker($ro);
         $request = new Request($invoker, $ro, Method::GET, []);
 
         $pendingRequests = new PendingRequests(new SyncAsync());
         $asyncRequest = new AsyncRequest($request, $pendingRequests);
 
-        $this->assertSame($request->hash(), $asyncRequest->hash());
+        // Inherited ArrayAccess routes through __invoke() and must not
+        // strand the pending entry nor re-execute on later render.
+        $this->assertSame('Test', $asyncRequest['name']);
+        $this->assertNotEmpty((string) $asyncRequest);
+        $this->assertSame(1, $invoker->invokeCount);
     }
 
     public function testHashDiffersForSameUriWithDifferentLinks(): void
