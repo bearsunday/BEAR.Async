@@ -20,7 +20,6 @@ use parallel\Future;
 use parallel\Runtime;
 use Throwable;
 
-use function array_key_first;
 use function array_keys;
 use function array_values;
 use function dirname;
@@ -159,7 +158,7 @@ final class ParallelAsync implements AsyncInterface
 
         foreach ($requestList as $i => $request) {
             $runtime = $this->pool[$i % $this->poolSize];
-            [$uri, $query] = $this->extractUriAndQueryFromAsyncRequest($request);
+            [$method, $uri, $query] = $this->extractMethodUriAndQuery($request);
             $links = $this->extractLinks($request);
             PayloadValidator::assertCopyable($query, '$query');
             PayloadValidator::assertCopyable($links, '$links');
@@ -169,10 +168,10 @@ final class ParallelAsync implements AsyncInterface
                  * @param array<string, mixed>               $query
                  * @param list<array{key: string, type: string}> $links
                  */
-                static function (string $name, string $context, string $appDir, string $uri, array $query, array $links): string {
+                static function (string $name, string $context, string $appDir, string $method, string $uri, array $query, array $links): string {
                     $resource = WorkerResourceCache::getOrInit($name, $context, $appDir);
                     /** @var array<string, mixed> $query */
-                    $request = $resource->newRequest(Method::GET, $uri, $query);
+                    $request = $resource->newRequest(Method::from($method), $uri, $query);
                     foreach ($links as $link) {
                         /** @var array{key: string, type: string} $link */
                         match ($link['type']) {
@@ -187,7 +186,7 @@ final class ParallelAsync implements AsyncInterface
 
                     return (string) $ro;
                 },
-                [$this->name, $this->context, $this->appDir, $uri, $query, $links],
+                [$this->name, $this->context, $this->appDir, $method, $uri, $query, $links],
             );
             if ($future !== null) {
                 $futures[$i] = $future;
@@ -222,13 +221,17 @@ final class ParallelAsync implements AsyncInterface
     }
 
     /**
-     * Extract URI and query from AsyncRequest
+     * Extract method, URI and query from AsyncRequest
      *
-     * @return array{0: string, 1: array<string, mixed>}
+     * The method crosses the thread boundary as its backing string and is
+     * replayed in the worker via Method::from(), so non-GET embeds keep
+     * their verb instead of degrading to GET.
+     *
+     * @return array{0: string, 1: string, 2: array<string, mixed>}
      */
-    private function extractUriAndQueryFromAsyncRequest(AsyncRequest $asyncRequest): array
+    private function extractMethodUriAndQuery(AsyncRequest $asyncRequest): array
     {
-        return [$asyncRequest->toUri(), $asyncRequest->query];
+        return [$asyncRequest->method->value, $asyncRequest->toUri(), $asyncRequest->query];
     }
 
     /**
@@ -270,29 +273,26 @@ final class ParallelAsync implements AsyncInterface
      */
     private function joinFutures(array $futures, array $tasks, callable $onResult, callable $getUriForError): void
     {
-        /** @var array<int, Throwable> $errors */
-        $errors = [];
+        $errors = new TaskErrors();
         foreach ($futures as $i => $future) {
             try {
                 $onResult($i, $future->value());
             } catch (Throwable $e) {
-                $errors[$i] = $e;
+                $errors->add($i, $e);
             }
         }
 
         foreach ($tasks as $i => $task) {
-            if (isset($futures[$i]) || isset($errors[$i])) {
+            if (isset($futures[$i]) || $errors->has($i)) {
                 continue;
             }
 
-            $errors[$i] = new TaskNotDispatchedException(
+            $errors->add($i, new TaskNotDispatchedException(
                 sprintf('Task not dispatched to worker Runtime for URI: %s', $getUriForError($task)),
-            );
+            ));
         }
 
-        if ($errors !== []) {
-            throw $errors[array_key_first($errors)];
-        }
+        $errors->throwFirst(array_keys($tasks));
     }
 
     private function initializePool(): void
