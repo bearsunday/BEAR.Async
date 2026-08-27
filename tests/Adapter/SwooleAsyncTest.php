@@ -7,6 +7,7 @@ namespace BEAR\Async\Adapter;
 use BEAR\Async\AsyncRequest;
 use BEAR\Async\Fake\FakeInvoker;
 use BEAR\Async\Fake\FakeResourceObject;
+use BEAR\Async\Fake\FakeSwooleDelayedThrowingInvoker;
 use BEAR\Async\Fake\FakeSwooleThrowingInvoker;
 use BEAR\Async\PendingRequests;
 use BEAR\Async\RequestTask;
@@ -132,6 +133,55 @@ final class SwooleAsyncTest extends TestCase
         // down the process (see Finding F1: previously $wg->wait() never
         // returned and the process exited 255).
         $this->assertTrue(true);
+    }
+
+    public function testExecuteRethrowsErrorOfFirstRequestInSubmissionOrder(): void
+    {
+        $slowFailure = new RuntimeException('slow request failed');
+        $fastFailure = new RuntimeException('fast request failed');
+
+        $pendingRequests = new PendingRequests($this->swooleAsync);
+        $slowRequest = new AsyncRequest(new Request(new FakeSwooleDelayedThrowingInvoker($slowFailure, 0.005), new FakeResourceObject('app://self/slow'), Method::GET, []), $pendingRequests);
+        $fastRequest = new AsyncRequest(new Request(new FakeSwooleThrowingInvoker($fastFailure), new FakeResourceObject('app://self/fast'), Method::GET, []), $pendingRequests);
+
+        $caught = null;
+        Coroutine\run(function () use ($slowRequest, $fastRequest, &$caught): void {
+            try {
+                $this->swooleAsync->execute([
+                    'slow' => $slowRequest,
+                    'fast' => $fastRequest,
+                ]);
+            } catch (Throwable $e) {
+                $caught = $e;
+            }
+        });
+
+        // The slow request comes first in submission order, so its error must
+        // be the one rethrown even though the fast request failed first.
+        $this->assertSame($slowFailure, $caught);
+    }
+
+    public function testInvokeRethrowsErrorOfFirstTaskInSubmissionOrder(): void
+    {
+        $slowFailure = new RuntimeException('slow task failed');
+        $fastFailure = new RuntimeException('fast task failed');
+
+        $slowTask = new RequestTask('hash-slow', new Request(new FakeSwooleDelayedThrowingInvoker($slowFailure, 0.005), new FakeResourceObject('app://self/slow'), Method::GET, []));
+        $fastTask = new RequestTask('hash-fast', new Request(new FakeSwooleThrowingInvoker($fastFailure), new FakeResourceObject('app://self/fast'), Method::GET, []));
+
+        $caught = null;
+        Coroutine\run(function () use ($slowTask, $fastTask, &$caught): void {
+            try {
+                ($this->swooleAsync)([
+                    'hash-slow' => $slowTask,
+                    'hash-fast' => $fastTask,
+                ]);
+            } catch (Throwable $e) {
+                $caught = $e;
+            }
+        });
+
+        $this->assertSame($slowFailure, $caught);
     }
 
     public function testInvokeProducesSameResultAsSyncAsync(): void
