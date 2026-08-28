@@ -67,15 +67,5 @@
                 <file name="src/Module/PooledExtendedPdoProvider.php"/>
             </errorLevel>
         </UndefinedDocblockClass>
-        <RedundantCast>
-            <errorLevel type="suppress">
-                <file name="src/AsyncLinker.php"/>
-            </errorLevel>
-        </RedundantCast>
-        <MixedPropertyTypeCoercion>
-            <errorLevel type="suppress">
-                <file name="src/AsyncLinker.php"/>
-            </errorLevel>
-        </MixedPropertyTypeCoercion>
     </issueHandlers>
 </psalm>

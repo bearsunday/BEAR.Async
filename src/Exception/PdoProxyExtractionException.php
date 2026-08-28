@@ -12,6 +12,6 @@ namespace BEAR\Async\Exception;
  * fails — this exception surfaces that as a domain error rather than leaking
  * the underlying ReflectionException.
  */
-final class PdoProxyExtractionException extends \RuntimeException
+final class PdoProxyExtractionException extends RuntimeException
 {
 }

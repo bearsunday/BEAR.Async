@@ -7,19 +7,23 @@ namespace BEAR\Async\Adapter;
 use BEAR\AppMeta\AbstractAppMeta;
 use BEAR\Async\AsyncInterface;
 use BEAR\Async\AsyncRequest;
+use BEAR\Async\Exception\TaskNotDispatchedException;
 use BEAR\Async\Qualifier\Context;
 use BEAR\Async\Qualifier\PoolSize;
 use BEAR\Async\RequestTask;
 use BEAR\Async\Worker\PayloadValidator;
 use BEAR\Async\Worker\WorkerResourceCache;
+use BEAR\Resource\LinkType;
+use BEAR\Resource\Method;
 use Override;
 use parallel\Future;
 use parallel\Runtime;
+use Throwable;
 
 use function array_keys;
 use function array_values;
 use function dirname;
-use function extension_loaded;
+use function sprintf;
 
 /**
  * ext-parallel based async execution using thread pool
@@ -27,6 +31,24 @@ use function extension_loaded;
  * This implementation uses PHP's parallel extension for true parallel
  * execution across multiple threads. Each Runtime lazily builds a single
  * ResourceInterface via WorkerResourceCache and reuses it across tasks.
+ *
+ * Failure semantics: a Throwable raised while executing one task/request
+ * does not abort its siblings. Every dispatched future is always joined
+ * (its value()/exception is collected); once all futures have been joined,
+ * the first Throwable encountered (in task/request iteration order) is
+ * rethrown to the caller, preserving its original type. A task whose
+ * Runtime::run() call returned null (never dispatched) is reported via
+ * {@see TaskNotDispatchedException} rather than silently leaving its
+ * result unset.
+ *
+ * Link replay: requests carrying linkSelf()/linkNew()/linkCrawl() have
+ * those links replayed inside the worker via ResourceInterface::newRequest()
+ * so the embedded resource graph matches what would happen synchronously.
+ *
+ * On first use, initializePool() warms exactly one worker synchronously
+ * before any task is dispatched. This serializes the (expensive) cold DI
+ * container build so the remaining pool threads hit a warm
+ * WorkerResourceCache instead of all compiling the same app concurrently.
  *
  * Requirements:
  * - PHP built with ZTS (Zend Thread Safety)
@@ -104,11 +126,16 @@ final class ParallelAsync implements AsyncInterface
             }
         }
 
-        foreach ($futures as $i => $future) {
-            /** @var array<string, mixed>|null $result */
-            $result = $future->value();
-            $taskList[$i]->setResult($result);
-        }
+        $this->joinFutures(
+            $futures,
+            $taskList,
+            /** @param array<string, mixed>|null $result */
+            function (int $i, mixed $result) use ($taskList): void {
+                /** @var array<string, mixed>|null $result */
+                $taskList[$i]->setResult($result);
+            },
+            fn (RequestTask $task): string => (string) $task->getRequest()->resourceObject->uri,
+        );
     }
 
     /** {@inheritDoc} */
@@ -126,24 +153,40 @@ final class ParallelAsync implements AsyncInterface
 
         /** @var list<Future> $futures */
         $futures = [];
-        $uris = array_keys($requests);
+        $keys = array_keys($requests);
         $requestList = array_values($requests);
 
         foreach ($requestList as $i => $request) {
             $runtime = $this->pool[$i % $this->poolSize];
-            [$uri, $query] = $this->extractUriAndQueryFromAsyncRequest($request);
+            [$method, $uri, $query] = $this->extractMethodUriAndQuery($request);
+            $links = $this->extractLinks($request);
             PayloadValidator::assertCopyable($query, '$query');
+            PayloadValidator::assertCopyable($links, '$links');
 
             $future = $runtime->run(
-                /** @param array<string, mixed> $query */
-                static function (string $name, string $context, string $appDir, string $uri, array $query): string {
+                /**
+                 * @param array<string, mixed>               $query
+                 * @param list<array{key: string, type: string}> $links
+                 */
+                static function (string $name, string $context, string $appDir, string $method, string $uri, array $query, array $links): string {
                     $resource = WorkerResourceCache::getOrInit($name, $context, $appDir);
                     /** @var array<string, mixed> $query */
-                    $ro = $resource->get($uri, $query);
+                    $request = $resource->newRequest(Method::from($method), $uri, $query);
+                    foreach ($links as $link) {
+                        /** @var array{key: string, type: string} $link */
+                        match ($link['type']) {
+                            LinkType::SELF_LINK => $request->linkSelf($link['key']),
+                            LinkType::NEW_LINK => $request->linkNew($link['key']),
+                            LinkType::CRAWL_LINK => $request->linkCrawl($link['key']),
+                            default => null,
+                        };
+                    }
+
+                    $ro = $request();
 
                     return (string) $ro;
                 },
-                [$this->name, $this->context, $this->appDir, $uri, $query],
+                [$this->name, $this->context, $this->appDir, $method, $uri, $query, $links],
             );
             if ($future !== null) {
                 $futures[$i] = $future;
@@ -151,11 +194,15 @@ final class ParallelAsync implements AsyncInterface
         }
 
         $results = [];
-        foreach ($futures as $i => $future) {
-            /** @var string $result */
-            $result = $future->value();
-            $results[$uris[$i]] = $result;
-        }
+        $this->joinFutures(
+            $futures,
+            $requestList,
+            function (int $i, mixed $result) use (&$results, $keys): void {
+                /** @var string $result */
+                $results[$keys[$i]] = $result;
+            },
+            fn (AsyncRequest $request): string => $request->toUri(),
+        );
 
         return $results;
     }
@@ -174,26 +221,110 @@ final class ParallelAsync implements AsyncInterface
     }
 
     /**
-     * Extract URI and query from AsyncRequest
+     * Extract method, URI and query from AsyncRequest
      *
-     * @return array{0: string, 1: array<string, mixed>}
+     * The method crosses the thread boundary as its backing string and is
+     * replayed in the worker via Method::from(), so non-GET embeds keep
+     * their verb instead of degrading to GET.
+     *
+     * @return array{0: string, 1: string, 2: array<string, mixed>}
      */
-    private function extractUriAndQueryFromAsyncRequest(AsyncRequest $asyncRequest): array
+    private function extractMethodUriAndQuery(AsyncRequest $asyncRequest): array
     {
-        return [$asyncRequest->toUri(), $asyncRequest->query];
+        return [$asyncRequest->method->value, $asyncRequest->toUri(), $asyncRequest->query];
     }
 
-    #[Override]
-    public function isAvailable(): bool
+    /**
+     * Extract a copyable list of links from an AsyncRequest
+     *
+     * BEAR\Resource\LinkType objects cannot cross the ext-parallel thread
+     * boundary, so they are flattened to plain arrays and replayed inside
+     * the worker via linkSelf()/linkNew()/linkCrawl().
+     *
+     * @return list<array{key: string, type: string}>
+     */
+    private function extractLinks(AsyncRequest $asyncRequest): array
     {
-        return extension_loaded('parallel');
+        $links = [];
+        foreach ($asyncRequest->links as $link) {
+            $links[] = ['key' => $link->key, 'type' => $link->type];
+        }
+
+        return $links;
+    }
+
+    /**
+     * Join all futures, collect errors, detect not-dispatched tasks, and rethrow the first error
+     *
+     * Shared by {@see __invoke()} and {@see execute()}. Every dispatched future is
+     * always joined (value() consumed). Tasks whose Runtime::run() returned null
+     * (never dispatched) are surfaced as {@see TaskNotDispatchedException}. If
+     * any Throwable was caught, the first one (in task iteration order) is
+     * rethrown, preserving its original type.
+     *
+     * @template T of object
+     *
+     * @param array<int, Future>        $futures        Position => Future (may have gaps)
+     * @param list<T>                   $tasks          Position => task/request in iteration order
+     * @param callable(int, mixed):void $onResult       Called with (position, future value) on success
+     * @param callable(T): string       $getUriForError Extract URI string from a task for the error message
+     *
+     * @throws Throwable The first error encountered, or TaskNotDispatchedException
+     */
+    private function joinFutures(array $futures, array $tasks, callable $onResult, callable $getUriForError): void
+    {
+        $errors = new TaskErrors();
+        foreach ($futures as $i => $future) {
+            try {
+                $onResult($i, $future->value());
+            } catch (Throwable $e) {
+                $errors->add($i, $e);
+            }
+        }
+
+        foreach ($tasks as $i => $task) {
+            if (isset($futures[$i]) || $errors->has($i)) {
+                continue;
+            }
+
+            $errors->add($i, new TaskNotDispatchedException(
+                sprintf('Task not dispatched to worker Runtime for URI: %s', $getUriForError($task)),
+            ));
+        }
+
+        $errors->throwFirst(array_keys($tasks));
     }
 
     private function initializePool(): void
     {
+        // A prior call may have left runtimes behind if warmup failed partway
+        // (initialized stays false so the next call retries from scratch);
+        // kill them first so failed attempts don't leak threads.
+        foreach ($this->pool as $runtime) {
+            $runtime->kill();
+        }
+
+        $this->pool = [];
         for ($i = 0; $i < $this->poolSize; $i++) {
             $this->pool[] = new Runtime($this->bootstrapFile);
         }
+
+        // Serialize the cold DI build on one worker so the remaining pool
+        // threads hit a warm WorkerResourceCache instead of all compiling
+        // the same app concurrently (thundering herd on var/tmp/{context}/di).
+        $future = $this->pool[0]->run(
+            static function (string $name, string $context, string $appDir): bool {
+                WorkerResourceCache::getOrInit($name, $context, $appDir);
+
+                return true;
+            },
+            [$this->name, $this->context, $this->appDir],
+        );
+        if ($future === null) {
+            throw new TaskNotDispatchedException('Task not dispatched to worker Runtime for pool warmup');
+        }
+
+        $future->value();
     }
 
     public function __destruct()

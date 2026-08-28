@@ -35,11 +35,12 @@ use Swoole\Database\RedisPool;
 final class RedisPoolModule extends AbstractModule
 {
     /**
-     * @param string       $host     Redis host
-     * @param int          $port     Redis port
-     * @param string       $auth     Redis password (optional)
-     * @param int          $dbIndex  Redis database index
-     * @param positive-int $poolSize Pool size (number of connections)
+     * @param string       $host          Redis host
+     * @param int          $port          Redis port
+     * @param string       $auth          Redis password (optional)
+     * @param int          $dbIndex       Redis database index
+     * @param positive-int $poolSize      Pool size (number of connections)
+     * @param float        $borrowTimeout Seconds to wait for a pooled connection before giving up
      */
     public function __construct(
         private readonly string $host = '127.0.0.1',
@@ -47,6 +48,7 @@ final class RedisPoolModule extends AbstractModule
         private readonly string $auth = '',
         private readonly int $dbIndex = 0,
         private readonly int $poolSize = 64,
+        private readonly float $borrowTimeout = 5.0,
     ) {
         parent::__construct();
     }
@@ -59,6 +61,7 @@ final class RedisPoolModule extends AbstractModule
         $this->bind()->annotatedWith('redis_pool_auth')->toInstance($this->auth);
         $this->bind()->annotatedWith('redis_pool_db_index')->toInstance($this->dbIndex);
         $this->bind()->annotatedWith('redis_pool_size')->toInstance($this->poolSize);
+        $this->bind()->annotatedWith('redis_pool_borrow_timeout')->toInstance($this->borrowTimeout);
 
         // Swoole\Database\RedisPool is created at runtime by provider
         $this->bind(RedisPool::class)->toProvider(RedisPoolProvider::class)->in(Scope::SINGLETON);

@@ -9,13 +9,12 @@ use BEAR\Async\AsyncInterface;
 use BEAR\Async\AsyncLinkCrawler;
 use BEAR\Resource\LinkCrawlerInterface;
 use BEAR\Resource\Module\ResourceModule;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
 use Ray\Di\AbstractModule;
 use Ray\Di\Injector;
 
-/**
- * @requires extension swoole
- */
+#[RequiresPhpExtension('swoole')]
 class AsyncSwooleModuleTest extends TestCase
 {
     public function testModuleCanBeInstantiated(): void

@@ -10,8 +10,9 @@ use BEAR\Async\RequestTask;
 use Override;
 use Swoole\Coroutine;
 use Swoole\Coroutine\WaitGroup;
+use Throwable;
 
-use function extension_loaded;
+use function array_keys;
 
 /**
  * Swoole-based async execution using coroutines and WaitGroup
@@ -20,10 +21,16 @@ use function extension_loaded;
  * execution. All tasks are executed concurrently, and the WaitGroup
  * ensures we wait for all tasks to complete before returning.
  *
+ * Failure semantics: a Throwable raised while executing one task/request
+ * does not abort its siblings or crash the Swoole worker. Every task is
+ * always allowed to run to completion (successful ones still call
+ * setResult() / populate the results array); once all coroutines have
+ * finished, the first Throwable in task/request iteration order — not
+ * coroutine completion order — is rethrown to the caller, preserving its
+ * original type.
+ *
  * Note: This only works when running inside a Swoole coroutine context
  * (e.g., inside a Swoole server or Coroutine::create block).
- *
- * @codeCoverageIgnore Requires Swoole coroutine context and BEAR.Resource integration
  */
 final class SwooleAsync implements AsyncInterface
 {
@@ -31,10 +38,11 @@ final class SwooleAsync implements AsyncInterface
     public function __invoke(array $tasks): void
     {
         $wg = new WaitGroup();
+        $errors = new TaskErrors();
 
-        foreach ($tasks as $task) {
+        foreach ($tasks as $key => $task) {
             $wg->add();
-            Coroutine::create(function () use ($task, $wg): void {
+            Coroutine::create(function () use ($key, $task, $wg, $errors): void {
                 try {
                     if (! ($task instanceof RequestTask)) {
                         return;
@@ -44,6 +52,8 @@ final class SwooleAsync implements AsyncInterface
                     $result = ($task->getRequest())()->body;
                     /** @var array<string, mixed>|null $result */
                     $task->setResult($result);
+                } catch (Throwable $e) {
+                    $errors->add($key, $e);
                 } finally {
                     $wg->done();
                 }
@@ -51,6 +61,8 @@ final class SwooleAsync implements AsyncInterface
         }
 
         $wg->wait();
+
+        $errors->throwFirst(array_keys($tasks));
     }
 
     /** {@inheritDoc} */
@@ -59,13 +71,16 @@ final class SwooleAsync implements AsyncInterface
     {
         $results = [];
         $wg = new WaitGroup();
+        $errors = new TaskErrors();
 
-        foreach ($requests as $uri => $request) {
+        foreach ($requests as $key => $request) {
             $wg->add();
-            Coroutine::create(static function () use ($uri, $request, &$results, $wg): void {
+            Coroutine::create(static function () use ($key, $request, &$results, $errors, $wg): void {
                 try {
                     // Coroutines share memory, so we can write directly to $results
-                    $results[$uri] = (string) $request();
+                    $results[$key] = (string) $request();
+                } catch (Throwable $e) {
+                    $errors->add($key, $e);
                 } finally {
                     $wg->done();
                 }
@@ -74,12 +89,8 @@ final class SwooleAsync implements AsyncInterface
 
         $wg->wait();
 
-        return $results;
-    }
+        $errors->throwFirst(array_keys($requests));
 
-    #[Override]
-    public function isAvailable(): bool
-    {
-        return (extension_loaded('swoole') || extension_loaded('openswoole')) && Coroutine::getCid() > 0;
+        return $results;
     }
 }

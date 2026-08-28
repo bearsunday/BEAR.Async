@@ -39,13 +39,6 @@ class ParallelAsyncTest extends TestCase
         WorkerResourceCache::reset();
     }
 
-    public function testIsAvailable(): void
-    {
-        $async = new ParallelAsync($this->makeMeta(), 'test-context', 2);
-
-        $this->assertTrue($async->isAvailable());
-    }
-
     public function testInvokeWithEmptyTasks(): void
     {
         $async = new ParallelAsync($this->makeMeta(), 'test-context', 2);

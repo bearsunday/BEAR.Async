@@ -29,7 +29,6 @@ parameters:
         - '#has unknown class BEAR\\Resource\\DataLoader\\DataLoader#'
         - '#Call to method load\(\) on an unknown class BEAR\\Resource\\DataLoader\\DataLoader#'
         - '#Access to an undefined property BEAR\\Resource\\Annotation\\Link::\$dataLoader#'
-        - '#Property BEAR\\Async\\AsyncLinker::\$cache .* does not accept#'
         - '#PHPDoc tag @var with type .* is not subtype of native type#'
         - '#will always evaluate to true#'
         - '#Cannot call method uri\(\) on mixed#'

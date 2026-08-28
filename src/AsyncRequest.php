@@ -10,6 +10,8 @@ use BEAR\Resource\ResourceObject;
 use Override;
 
 use function json_decode;
+use function md5;
+use function serialize;
 
 use const JSON_THROW_ON_ERROR;
 
@@ -49,23 +51,41 @@ final class AsyncRequest extends AbstractRequest
         $pendingRequests->add($this);
     }
 
-    /** Invoke the inner request and return the ResourceObject */
+    /**
+     * Invoke the inner request directly and record the result
+     *
+     * This path is hit not only by explicit `$request()` calls but by every
+     * inherited accessor that memoizes via AbstractRequest::invoke()
+     * (__get, offsetGet, offsetExists, getIterator) — and by the adapters
+     * themselves, whose execute() renders each request via `(string) $request()`.
+     * The result is handed to PendingRequests::complete() so the pending
+     * batch does not execute this request a second time, and a later
+     * __toString()/jsonSerialize() can render from the already-invoked
+     * ResourceObject.
+     */
     #[Override]
     public function __invoke(array|null $query = null): ResourceObject
     {
-        return ($this->inner)($query);
+        $previousKey = $this->hash();
+        $ro = ($this->inner)($query);
+        $this->query = $this->inner->query;
+        $this->uri = $this->inner->toUri();
+        $this->pendingRequests->rekey($previousKey, $this);
+        $this->pendingRequests->complete($this, $ro);
+
+        return $ro;
     }
 
     #[Override]
     public function __toString(): string
     {
-        return $this->pendingRequests->getResult($this->toUri());
+        return $this->pendingRequests->getResult($this);
     }
 
     #[Override]
     public function jsonSerialize(): mixed
     {
-        $view = $this->pendingRequests->getResult($this->toUri());
+        $view = $this->pendingRequests->getResult($this);
 
         return json_decode($view, true, 512, JSON_THROW_ON_ERROR);
     }
@@ -82,15 +102,31 @@ final class AsyncRequest extends AbstractRequest
         return $this->inner->toUriWithMethod();
     }
 
+    /**
+     * Identity is method + URI + links, computed uniformly here
+     *
+     * PendingRequests keys pending/results by this hash. The inherited
+     * class-based hash() cannot be used: for deferred requests the
+     * $resourceObject is a NullResourceObject shared across different URIs,
+     * and for plain Requests it ignores the URI entirely, so two embeds of
+     * the same resource class pointing at different URIs would collide and
+     * silently share one result. The formula matches DeferredRequest::hash().
+     */
+    #[Override]
+    public function hash(): string
+    {
+        return md5($this->inner->method->value . $this->inner->toUri() . serialize($this->inner->links));
+    }
+
     /** {@inheritDoc} */
     #[Override]
     public function withQuery(array $query): RequestInterface
     {
-        $previousUri = $this->uri;
+        $previousKey = $this->hash();
         $this->inner->withQuery($query);
         $this->query = $this->inner->query;
         $this->uri = $this->inner->toUri();
-        $this->pendingRequests->rekey($previousUri, $this);
+        $this->pendingRequests->rekey($previousKey, $this);
 
         return $this;
     }
@@ -99,11 +135,11 @@ final class AsyncRequest extends AbstractRequest
     #[Override]
     public function addQuery(array $query): RequestInterface
     {
-        $previousUri = $this->uri;
+        $previousKey = $this->hash();
         $this->inner->addQuery($query);
         $this->query = $this->inner->query;
         $this->uri = $this->inner->toUri();
-        $this->pendingRequests->rekey($previousUri, $this);
+        $this->pendingRequests->rekey($previousKey, $this);
 
         return $this;
     }
@@ -111,8 +147,10 @@ final class AsyncRequest extends AbstractRequest
     #[Override]
     public function linkSelf(string $linkKey): RequestInterface
     {
+        $previousKey = $this->hash();
         $this->inner->linkSelf($linkKey);
         $this->links = $this->inner->links;
+        $this->pendingRequests->rekey($previousKey, $this);
 
         return $this;
     }
@@ -120,8 +158,10 @@ final class AsyncRequest extends AbstractRequest
     #[Override]
     public function linkNew(string $linkKey): RequestInterface
     {
+        $previousKey = $this->hash();
         $this->inner->linkNew($linkKey);
         $this->links = $this->inner->links;
+        $this->pendingRequests->rekey($previousKey, $this);
 
         return $this;
     }
@@ -129,8 +169,10 @@ final class AsyncRequest extends AbstractRequest
     #[Override]
     public function linkCrawl(string $linkKey): RequestInterface
     {
+        $previousKey = $this->hash();
         $this->inner->linkCrawl($linkKey);
         $this->links = $this->inner->links;
+        $this->pendingRequests->rekey($previousKey, $this);
 
         return $this;
     }

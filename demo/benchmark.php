@@ -22,9 +22,6 @@ declare(strict_types=1);
  *   - Async: 3 levels × 200ms   = ~600ms  (parallel per level)
  */
 
-use BEAR\Async\Adapter\SwooleAsync;
-use BEAR\Async\Adapter\SyncAsync;
-use BEAR\Async\AsyncInterface;
 use BEAR\Async\Module\AsyncSwooleModule;
 use Ray\Di\AbstractModule;
 
@@ -32,14 +29,7 @@ require __DIR__ . '/bootstrap.php';
 
 $adapterName = $argv[1] ?? 'sync';
 
-// Create module and async implementation for availability check
-$result = match ($adapterName) {
-    'sync' => ['module' => null, 'async' => new SyncAsync()],
-    'swoole' => ['module' => new AsyncSwooleModule(), 'async' => new SwooleAsync()],
-    default => null,
-};
-
-if ($result === null) {
+if (! in_array($adapterName, ['sync', 'swoole'], true)) {
     echo json_encode(['error' => "Unknown adapter: {$adapterName}"]) . PHP_EOL;
     $GLOBALS['benchmark_exit_code'] = 1;
     if (! class_exists('Swoole\Coroutine') || Swoole\Coroutine::getCid() === -1) {
@@ -49,13 +39,12 @@ if ($result === null) {
     return;
 }
 
-/** @var AbstractModule|null $module */
-$module = $result['module'];
-/** @var AsyncInterface $asyncImpl */
-$asyncImpl = $result['async'];
+// Check adapter availability before building any module:
+// sync always works; swoole needs ext-swoole and a running coroutine context.
+$isAvailable = $adapterName === 'sync'
+    || ((extension_loaded('swoole') || extension_loaded('openswoole')) && Swoole\Coroutine::getCid() > 0);
 
-// Check adapter availability
-if (! $asyncImpl->isAvailable()) {
+if (! $isAvailable) {
     echo json_encode(['error' => "Adapter '{$adapterName}' is not available"]) . PHP_EOL;
     $GLOBALS['benchmark_exit_code'] = 2;
     if (! class_exists('Swoole\Coroutine') || Swoole\Coroutine::getCid() === -1) {
@@ -64,6 +53,9 @@ if (! $asyncImpl->isAvailable()) {
 
     return;
 }
+
+/** @var AbstractModule|null $module */
+$module = $adapterName === 'swoole' ? new AsyncSwooleModule() : null;
 
 $start = microtime(true);
 

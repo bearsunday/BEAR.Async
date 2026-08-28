@@ -29,18 +29,12 @@ interface AsyncInterface
      * Used by PendingRequests to execute pending embed requests.
      * Each request is invoked and rendered to string in parallel.
      *
-     * @param array<string, AsyncRequest> $requests Requests keyed by URI
+     * Requests are keyed by an opaque per-request key (AsyncRequest::hash()).
+     * Implementations MUST key the returned views by the same input keys.
      *
-     * @return array<string, string> Rendered views keyed by URI
+     * @param array<string, AsyncRequest> $requests Requests keyed by request hash
+     *
+     * @return array<string, string> Rendered views keyed by the same request hash
      */
     public function execute(array $requests): array;
-
-    /**
-     * Check if this async implementation is currently available
-     *
-     * For Swoole: requires extension loaded AND running in coroutine context
-     * For Parallel: requires ext-parallel loaded
-     * For Sync: always returns true
-     */
-    public function isAvailable(): bool;
 }
