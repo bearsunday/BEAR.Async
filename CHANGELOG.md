@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## 0.4.0 - 2026-08-29
 
 ### BREAKING
 
@@ -10,7 +10,34 @@ All notable changes to this project will be documented in this file.
 - Removed mysqli-based async batch execution: `Mysqli\MysqliBatchExecutor`, `Mysqli\SyncBatchExecutor`, `Mysqli\MysqliConnectionFactory`, `Mysqli\MysqliParamBinder`.
 - Removed `Module\MysqliBatchModule`, `Module\MysqliEnvModule`, and `Exception\MysqliConnectionException`.
 - Removed the `BEAR\Projection\` namespace (`QueryBatchCoordinator`, `QueryResourceObject`, `Exception\SqlFileNotFoundException`).
-- **Migration:** split each SQL into its own `ResourceObject` and let `#[Embed]` parallelize them via AsyncLinker. Pair with Ray.MediaQuery's `#[DbQuery]` BDR pattern for the underlying Repository. See "SQL Resources with BDR + `#[Embed]`" in `README.md`.
+- Migration: split each SQL into its own `ResourceObject` and let `#[Embed]` parallelize them. Pair with Ray.MediaQuery's `#[DbQuery]` BDR pattern for the underlying Repository. See "SQL Resources with BDR + `#[Embed]`" in `README.md`.
+- Removed `AsyncInterface::isAvailable()`; a missing extension fails fast with `Exception\ExtensionNotLoadedException` from the owning module's `configure()` instead of falling back at runtime.
+- Removed the dead `Async` facade, `AsyncLinker`, `Adapter\Linker`, and `Exception\PoolNotInitializedException`.
+- `PendingRequests::getResult()` now takes the `AsyncRequest` instead of its URI.
+- `PdoPoolEnvModule` / `RedisPoolEnvModule` throw `Exception\InvalidEnvException` at boot when a pool-size, borrow-timeout, port or DB-index variable is set to an invalid value (previously fell back to the default).
+
+### Fixed
+
+- `SwooleAsync` catches each coroutine's `Throwable`, so one failing embed no longer takes down the worker process; siblings finish and the first error is rethrown afterwards.
+- `ParallelAsync` joins every `parallel\Future` before rethrowing, replays `linkSelf()`/`linkNew()`/`linkCrawl()` inside the worker, and reports never-dispatched tasks with `Exception\TaskNotDispatchedException`.
+- `ParallelAsync` preserves the request method across the thread boundary instead of rebuilding every embed as `GET`.
+- `ParallelAsync` no longer leaks runtime threads when pool warm-up fails and is retried.
+- The error rethrown after a failed batch is the first in submission order for every adapter, not the first to finish; `SyncAsync` also runs all siblings to completion first.
+- Pending embeds are deduplicated by request hash (method + URI + links) instead of URI alone, and `AsyncRequest` re-keys itself when `withQuery()`/`addQuery()`/`linkSelf()`/`linkNew()`/`linkCrawl()` change that hash.
+- `AsyncRequest::hash()` no longer conflates different URIs served by the same `ResourceObject` class.
+- Directly invoking an `AsyncRequest` (`__invoke()`, `offsetGet()`, iteration) completes its pending entry instead of executing it again on a later render; a failed batch is abandoned rather than replayed.
+
+### Added
+
+- `PooledPdoBorrower` — shared checkout for `PooledPdoProvider` / `PooledExtendedPdoProvider`: bounded wait (`Exception\PoolTimeoutException`), `SELECT 1` ping on checkout, one retry after discarding a dead connection, then `Exception\StalePooledConnectionException` with the driver error as the previous exception.
+- `PooledRedisProvider` mirrors that checkout (bounded wait, `PING`, one retry) and caches the connection per coroutine, returning it once via `Coroutine::defer()`.
+- `borrowTimeout` on `PdoPoolModule` / `RedisPoolModule` and `borrowTimeoutEnv` / `defaultBorrowTimeout` on `PdoPoolEnvModule` / `RedisPoolEnvModule` (default 5.0s; `pdo_pool_borrow_timeout` / `redis_pool_borrow_timeout` bindings).
+- `Adapter\TaskErrors`, `Module\PoolEnv`, `Exception\InvalidEnvException`, `Exception\StalePooledConnectionException`, `Exception\TaskNotDispatchedException`.
+
+### Changed
+
+- Domain exceptions extend the package's `Exception\RuntimeException` (no longer `final`), so every BEAR.Async failure can be caught with one base type.
+- `ParallelAsync` warms one worker synchronously before dispatching, so the rest of the pool reuses the compiled container instead of building it concurrently.
 
 ## 0.3.0 - 2026-05-13
 
