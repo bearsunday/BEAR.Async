@@ -47,8 +47,6 @@ final class PooledPdoProvider implements ProviderInterface
      * @throws PdoProxyExtractionException    if the underlying PDO cannot be read from the proxy
      * @throws StalePooledConnectionException if the pool keeps handing out dead connections
      * @throws PDOException                   if the pool dials a new connection and the connect fails
-     *
-     * @codeCoverageIgnore Requires Swoole coroutine context
      */
     public function get(): PDO
     {
