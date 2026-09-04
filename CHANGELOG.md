@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- Documented install order now works: install `AsyncSwooleModule` before `PackageModule` (Ray.Di keeps the first binding).
+- `AsyncEmbedInterceptor` resolves `PendingRequests` per invocation via `ProviderInterface` instead of at construction, so the Swoole coroutine-local binding is no longer shared across coroutines; `SwoolePendingRequestsProvider` throws `Exception\NotInCoroutineException` outside a coroutine instead of returning disjoint instances.
+- `AsyncLinkCrawler` resets its dedup cache at the start of each crawl, so a long-running Swoole process no longer serves stale bodies across requests.
+- Demo: `bin/swoole.php` boots with `BEAR\Package\Injector::getOverrideInstance()` and warms up the compiled DI container, fixing a race in the reflective injector that failed concurrent requests with a false `CircularDependency`.
+
+### Changed
+
+- `AsyncEmbedModule` binds `SyncAsync` as the default `AsyncInterface` adapter; runtime modules still win by binding their own adapter first.
+
 ## 0.4.0 - 2026-08-29
 
 ### BREAKING
