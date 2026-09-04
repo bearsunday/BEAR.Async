@@ -34,13 +34,14 @@ use Ray\Di\Scope;
  *       }
  *   }
  *
- * Usage (recommended - with AsyncSwooleModule):
+ * Usage (recommended - with AsyncSwooleModule; Ray.Di keeps the first binding,
+ * so install async modules before PackageModule):
  *   class AppModule extends AbstractModule
  *   {
  *       protected function configure(): void
  *       {
- *           $this->install(new PackageModule());
  *           $this->install(new AsyncSwooleModule());  // Includes AsyncEmbedModule
+ *           $this->install(new PackageModule());
  *       }
  *   }
  */

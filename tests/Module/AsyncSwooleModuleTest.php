@@ -29,8 +29,8 @@ class AsyncSwooleModuleTest extends TestCase
         $module = new class extends AbstractModule {
             protected function configure(): void
             {
-                $this->install(new ResourceModule('FakeVendor\Sandbox'));
                 $this->install(new AsyncSwooleModule());
+                $this->install(new ResourceModule('FakeVendor\Sandbox'));
             }
         };
 
@@ -42,10 +42,16 @@ class AsyncSwooleModuleTest extends TestCase
 
     public function testLinkCrawlerInterfaceBinding(): void
     {
-        $resourceModule = new ResourceModule('FakeVendor\Sandbox');
-        $resourceModule->override(new AsyncSwooleModule());
+        $module = new class extends AbstractModule {
+            protected function configure(): void
+            {
+                // The documented install order: async module first, framework module last
+                $this->install(new AsyncSwooleModule());
+                $this->install(new ResourceModule('FakeVendor\Sandbox'));
+            }
+        };
 
-        $injector = new Injector($resourceModule);
+        $injector = new Injector($module);
         $linkCrawler = $injector->getInstance(LinkCrawlerInterface::class);
 
         $this->assertInstanceOf(AsyncLinkCrawler::class, $linkCrawler);
