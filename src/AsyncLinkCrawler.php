@@ -58,6 +58,10 @@ final class AsyncLinkCrawler implements LinkCrawlerInterface
     #[Override]
     public function crawl(array $annotations, LinkType $link, array &$bodyList): void
     {
+        // The cache lives for a single crawl (same as the sequential LinkCrawler);
+        // without the reset a long-running Swoole process would serve stale bodies
+        $this->cache = [];
+
         // Process DataLoader-enabled links first
         /**
          * @psalm-suppress ArgumentTypeCoercion
@@ -207,10 +211,14 @@ final class AsyncLinkCrawler implements LinkCrawlerInterface
         $request = $task->getRequest();
         $nestedAnnotations = $this->getLinkAnnotations($request->resourceObject, $request->method);
 
-        // Call crawl with empty list to trigger DataLoader
+        // Trigger DataLoader without re-entering crawl(), which would reset the cache mid-crawl
         /** @var array<int, array<string, mixed>> $emptyList */
         $emptyList = [];
-        $this->crawl($nestedAnnotations, $link, $emptyList);
+        /**
+         * @psalm-suppress ArgumentTypeCoercion
+         * @phpstan-ignore argument.type
+         */
+        $this->dataLoader?->load($nestedAnnotations, $link, $emptyList);
     }
 
     /**
