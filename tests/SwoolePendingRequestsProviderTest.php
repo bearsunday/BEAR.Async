@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BEAR\Async;
 
 use BEAR\Async\Adapter\SyncAsync;
+use BEAR\Async\Exception\NotInCoroutineException;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
 use Swoole\Coroutine;
@@ -12,6 +13,15 @@ use Swoole\Coroutine;
 #[RequiresPhpExtension('swoole')]
 final class SwoolePendingRequestsProviderTest extends TestCase
 {
+    public function testGetOutsideCoroutineThrows(): void
+    {
+        $provider = new SwoolePendingRequestsProvider(new SyncAsync());
+
+        $this->expectException(NotInCoroutineException::class);
+
+        $provider->get();
+    }
+
     public function testGetReturnsSameInstanceWithinCoroutine(): void
     {
         $provider = new SwoolePendingRequestsProvider(new SyncAsync());

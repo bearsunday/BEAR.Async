@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BEAR\Async;
 
+use BEAR\Async\Exception\NotInCoroutineException;
 use Ray\Di\ProviderInterface;
 use Swoole\Coroutine;
 
@@ -25,8 +26,13 @@ final class SwoolePendingRequestsProvider implements ProviderInterface
     ) {
     }
 
+    /** @throws NotInCoroutineException if called outside a Swoole coroutine context */
     public function get(): PendingRequests
     {
+        if (Coroutine::getCid() === -1) {
+            throw new NotInCoroutineException();
+        }
+
         /** @var \ArrayObject<string, mixed> $context */
         $context = Coroutine::getContext();
 
