@@ -14,7 +14,7 @@
         "koriym/env-json": "^1.0",
         "bear/async": "@dev",
         "bear/resource": "^1.32",
-        "bear/package": "^1.14",
+        "bear/package": "^1.20",
         "bear/sunday": "^1.6",
         "bear/swoole": "^0.7",
         "ray/aop": "^2.12",
