@@ -24,8 +24,8 @@ use Swoole\Database\PDOPool;
  *   {
  *       protected function configure(): void
  *       {
- *           $this->install(new PackageModule());
  *           $this->install(new AsyncSwooleModule());
+ *           $this->install(new PackageModule());
  *           $this->install(new PdoPoolModule(
  *               'mysql:host=localhost;dbname=test',
  *               'user',

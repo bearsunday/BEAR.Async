@@ -33,8 +33,8 @@ use function getenv;
  *   {
  *       protected function configure(): void
  *       {
- *           $this->install(new PackageModule());
  *           $this->install(new AsyncSwooleModule());
+ *           $this->install(new PackageModule());
  *           $this->install(new RedisPoolEnvModule(
  *               'REDIS_HOST',
  *               'REDIS_PORT',

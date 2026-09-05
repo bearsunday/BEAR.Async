@@ -22,8 +22,8 @@ use Swoole\Database\RedisPool;
  *   {
  *       protected function configure(): void
  *       {
- *           $this->install(new PackageModule());
  *           $this->install(new AsyncSwooleModule());
+ *           $this->install(new PackageModule());
  *           $this->install(new RedisPoolModule(
  *               host: '127.0.0.1',
  *               port: 6379,
