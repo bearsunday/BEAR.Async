@@ -22,7 +22,7 @@ All notable changes to this project will be documented in this file.
 - Removed mysqli-based async batch execution: `Mysqli\MysqliBatchExecutor`, `Mysqli\SyncBatchExecutor`, `Mysqli\MysqliConnectionFactory`, `Mysqli\MysqliParamBinder`.
 - Removed `Module\MysqliBatchModule`, `Module\MysqliEnvModule`, and `Exception\MysqliConnectionException`.
 - Removed the `BEAR\Projection\` namespace (`QueryBatchCoordinator`, `QueryResourceObject`, `Exception\SqlFileNotFoundException`).
-- Migration: split each SQL into its own `ResourceObject` and let `#[Embed]` parallelize them. Pair with Ray.MediaQuery's `#[DbQuery]` BDR pattern for the underlying Repository. See "SQL Resources with BDR + `#[Embed]`" in `README.md`.
+- Migration: split each SQL into its own `ResourceObject` and let `#[Embed]` parallelize them. Pair with Ray.MediaQuery's `#[DbQuery]` BDR pattern for the underlying Repository. See [SQL resources with BDR + `#[Embed]`](https://bearsunday.github.io/manuals/1.0/en/async.html#sql-resources-with-bdr--embed) in the manual.
 - Removed `AsyncInterface::isAvailable()`; a missing extension fails fast with `Exception\ExtensionNotLoadedException` from the owning module's `configure()` instead of falling back at runtime.
 - Removed the dead `Async` facade, `AsyncLinker`, `Adapter\Linker`, and `Exception\PoolNotInitializedException`.
 - `PendingRequests::getResult()` now takes the `AsyncRequest` instead of its URI.
