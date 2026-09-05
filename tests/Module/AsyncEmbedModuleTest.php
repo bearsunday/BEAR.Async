@@ -20,7 +20,6 @@ class AsyncEmbedModuleTest extends TestCase
         $module = new class extends AbstractModule {
             protected function configure(): void
             {
-                // The documented install order: async module first, framework module last
                 $this->install(new AsyncEmbedModule());
                 $this->install(new ResourceModule('FakeVendor\Sandbox'));
             }

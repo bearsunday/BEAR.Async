@@ -45,7 +45,6 @@ class AsyncSwooleModuleTest extends TestCase
         $module = new class extends AbstractModule {
             protected function configure(): void
             {
-                // The documented install order: async module first, framework module last
                 $this->install(new AsyncSwooleModule());
                 $this->install(new ResourceModule('FakeVendor\Sandbox'));
             }

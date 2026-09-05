@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - Documented install order now works: install `AsyncSwooleModule` before `PackageModule` (Ray.Di keeps the first binding).
 - `AsyncEmbedInterceptor` resolves `PendingRequests` per invocation via `ProviderInterface` instead of at construction, so the Swoole coroutine-local binding is no longer shared across coroutines; `SwoolePendingRequestsProvider` throws `Exception\NotInCoroutineException` outside a coroutine instead of returning disjoint instances.
-- `AsyncLinkCrawler` resets its dedup cache at the start of each crawl, so a long-running Swoole process no longer serves stale bodies across requests.
+- `AsyncLinkCrawler` scopes its dedup cache to a single `crawl()` call instead of the instance lifetime.
 - Demo: `bin/swoole.php` boots with `BEAR\Package\Injector::getOverrideInstance()` and warms up the compiled DI container, fixing a race in the reflective injector that failed concurrent requests with a false `CircularDependency`.
 
 ### Changed

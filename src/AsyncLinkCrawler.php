@@ -58,8 +58,8 @@ final class AsyncLinkCrawler implements LinkCrawlerInterface
     #[Override]
     public function crawl(array $annotations, LinkType $link, array &$bodyList): void
     {
-        // The cache lives for a single crawl (same as the sequential LinkCrawler);
-        // without the reset a long-running Swoole process would serve stale bodies
+        // Dedup scope is one crawl. Linker resolves a fresh crawler per invoke,
+        // so this only matters if the crawler is ever bound as a singleton
         $this->cache = [];
 
         // Process DataLoader-enabled links first
