@@ -17,12 +17,11 @@ use Swoole\Database\RedisPool;
  * This module provides a connection pool for Redis instances in Swoole
  * coroutine environments.
  *
- * Usage:
- *   class AppModule extends AbstractModule
+ * Usage (from a swoole context module):
+ *   final class SwooleModule extends AbstractModule
  *   {
  *       protected function configure(): void
  *       {
- *           $this->install(new PackageModule());
  *           $this->install(new AsyncSwooleModule());
  *           $this->install(new RedisPoolModule(
  *               host: '127.0.0.1',

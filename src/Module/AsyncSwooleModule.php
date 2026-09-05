@@ -29,16 +29,20 @@ use function extension_loaded;
  * - Parallel #[Embed] execution via AsyncEmbedModule
  *
  * Requirements:
- * - ext-swoole installed
+ * - ext-swoole or ext-openswoole
  * - Running inside a Swoole coroutine context
  *
- * Usage (Ray.Di keeps the first binding, so install this module before PackageModule):
- *   class AppModule extends AbstractModule
+ * Usage (from a swoole context module, selected by a context such as prod-swoole-hal-api-app).
+ * Not inside AppModule: Ray.Di keeps the first binding, so after PackageModule
+ * the async bindings are silently dropped.
+ *   namespace MyVendor\MyApp\Module;
+ *
+ *   final class SwooleModule extends AbstractModule
  *   {
  *       protected function configure(): void
  *       {
  *           $this->install(new AsyncSwooleModule());
- *           $this->install(new PackageModule());
+ *           $this->install(new PdoPoolEnvModule('PDO_DSN', 'PDO_USER', 'PDO_PASSWORD'));
  *       }
  *   }
  */

@@ -27,24 +27,14 @@ use Ray\Di\Scope;
  * AsyncInterface defaults to SyncAsync (sequential); ParallelModule and
  * AsyncSwooleModule bind their own adapter first, which wins over the default.
  *
- * Usage (standalone, synchronous fallback):
- *   class AppModule extends AbstractModule
+ * Usage (standalone, sequential; from a context module):
+ *   namespace MyVendor\MyApp\Module;
+ *
+ *   final class AsyncModule extends AbstractModule
  *   {
  *       protected function configure(): void
  *       {
  *           $this->install(new AsyncEmbedModule());
- *           $this->install(new PackageModule());
- *       }
- *   }
- *
- * Usage (recommended - with AsyncSwooleModule; Ray.Di keeps the first binding,
- * so install async modules before PackageModule):
- *   class AppModule extends AbstractModule
- *   {
- *       protected function configure(): void
- *       {
- *           $this->install(new AsyncSwooleModule());  // Includes AsyncEmbedModule
- *           $this->install(new PackageModule());
  *       }
  *   }
  */

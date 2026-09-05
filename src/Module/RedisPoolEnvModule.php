@@ -28,12 +28,11 @@ use function getenv;
  * set to a non-numeric or out-of-range value throws InvalidEnvException at
  * boot (see {@see PoolEnv}).
  *
- * Usage:
- *   class AppModule extends AbstractModule
+ * Usage (from a swoole context module):
+ *   final class SwooleModule extends AbstractModule
  *   {
  *       protected function configure(): void
  *       {
- *           $this->install(new PackageModule());
  *           $this->install(new AsyncSwooleModule());
  *           $this->install(new RedisPoolEnvModule(
  *               'REDIS_HOST',
