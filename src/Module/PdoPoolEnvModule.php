@@ -26,13 +26,12 @@ use Swoole\Database\PDOPool;
  * set to a non-numeric or non-positive value throws InvalidEnvException at
  * boot (see {@see PoolEnv}).
  *
- * Usage:
- *   class AppModule extends AbstractModule
+ * Usage (from a swoole context module; AppModule stays unchanged):
+ *   final class SwooleModule extends AbstractModule
  *   {
  *       protected function configure(): void
  *       {
  *           $this->install(new AsyncSwooleModule());
- *           $this->install(new PackageModule());
  *           $this->install(new PdoPoolEnvModule(
  *               'PDO_DSN',
  *               'PDO_USER',

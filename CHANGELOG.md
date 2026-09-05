@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- Install `AsyncSwooleModule` before `PackageModule`; the documented reverse order lost the async bindings.
+- Documented usage: install `AsyncSwooleModule` from a `swoole` context module, not inside `AppModule`; the documented `AppModule` example installed it after `PackageModule` and lost the async bindings.
 - `AsyncEmbedInterceptor` resolves `PendingRequests` per invocation, so Swoole coroutines no longer share one instance.
 - `SwoolePendingRequestsProvider` throws `NotInCoroutineException` outside a coroutine.
 

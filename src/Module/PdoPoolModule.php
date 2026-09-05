@@ -19,13 +19,12 @@ use Swoole\Database\PDOPool;
  * coroutine environments. When multiple coroutines need database access,
  * each gets its own PDO instance from the pool, preventing "Packets out of order" errors.
  *
- * Usage:
- *   class AppModule extends AbstractModule
+ * Usage (from a swoole context module; AppModule stays unchanged):
+ *   final class SwooleModule extends AbstractModule
  *   {
  *       protected function configure(): void
  *       {
  *           $this->install(new AsyncSwooleModule());
- *           $this->install(new PackageModule());
  *           $this->install(new PdoPoolModule(
  *               'mysql:host=localhost;dbname=test',
  *               'user',

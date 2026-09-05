@@ -23,7 +23,7 @@ composer require bear/async
 | Server | Requires | Application change |
 |---|---|---|
 | PHP-FPM / Apache | ZTS PHP + ext-parallel | add `bin/async.php` (see [manual](https://bearsunday.github.io/manuals/1.0/en/async.html#parallel-execution-ext-parallel)) |
-| Swoole HTTP Server | ext-swoole | install `AsyncSwooleModule` before `PackageModule`, boot on the compiled injector (see [manual](https://bearsunday.github.io/manuals/1.0/en/async.html#swoole-execution-ext-swoole)) |
+| Swoole HTTP Server | ext-swoole / ext-openswoole | add a `swoole` context module that installs `AsyncSwooleModule`; boot on the compiled injector (see [manual](https://bearsunday.github.io/manuals/1.0/en/async.html#swoole-execution-ext-swoole)) |
 
 Without either extension the same code runs sequentially. A missing extension
 fails at `configure()` with `ExtensionNotLoadedException`; there is no silent

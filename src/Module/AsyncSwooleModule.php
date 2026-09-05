@@ -32,13 +32,18 @@ use function extension_loaded;
  * - ext-swoole installed
  * - Running inside a Swoole coroutine context
  *
- * Usage (Ray.Di keeps the first binding, so install this module before PackageModule):
- *   class AppModule extends AbstractModule
+ * Usage: install from a swoole context module and boot with a context such
+ * as prod-swoole-hal-api-app. AppModule stays unchanged, so bin/app.php keeps
+ * running sequentially. Do not install this module inside AppModule: Ray.Di
+ * keeps the first binding, and after PackageModule the async bindings are dropped.
+ *   namespace MyVendor\MyApp\Module;
+ *
+ *   final class SwooleModule extends AbstractModule
  *   {
  *       protected function configure(): void
  *       {
  *           $this->install(new AsyncSwooleModule());
- *           $this->install(new PackageModule());
+ *           $this->install(new PdoPoolEnvModule('PDO_DSN', 'PDO_USER', 'PDO_PASSWORD'));
  *       }
  *   }
  */
