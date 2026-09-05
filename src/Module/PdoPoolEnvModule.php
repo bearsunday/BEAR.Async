@@ -26,7 +26,7 @@ use Swoole\Database\PDOPool;
  * set to a non-numeric or non-positive value throws InvalidEnvException at
  * boot (see {@see PoolEnv}).
  *
- * Usage (from a swoole context module; AppModule stays unchanged):
+ * Usage (from a swoole context module):
  *   final class SwooleModule extends AbstractModule
  *   {
  *       protected function configure(): void

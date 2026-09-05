@@ -29,13 +29,12 @@ use function extension_loaded;
  * - Parallel #[Embed] execution via AsyncEmbedModule
  *
  * Requirements:
- * - ext-swoole installed
+ * - ext-swoole or ext-openswoole
  * - Running inside a Swoole coroutine context
  *
- * Usage: install from a swoole context module and boot with a context such
- * as prod-swoole-hal-api-app. AppModule stays unchanged, so bin/app.php keeps
- * running sequentially. Do not install this module inside AppModule: Ray.Di
- * keeps the first binding, and after PackageModule the async bindings are dropped.
+ * Usage (from a swoole context module, selected by a context such as prod-swoole-hal-api-app).
+ * Not inside AppModule: Ray.Di keeps the first binding, so after PackageModule
+ * the async bindings are silently dropped.
  *   namespace MyVendor\MyApp\Module;
  *
  *   final class SwooleModule extends AbstractModule

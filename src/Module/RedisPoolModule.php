@@ -17,7 +17,7 @@ use Swoole\Database\RedisPool;
  * This module provides a connection pool for Redis instances in Swoole
  * coroutine environments.
  *
- * Usage (from a swoole context module; AppModule stays unchanged):
+ * Usage (from a swoole context module):
  *   final class SwooleModule extends AbstractModule
  *   {
  *       protected function configure(): void

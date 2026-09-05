@@ -27,8 +27,7 @@ use Ray\Di\Scope;
  * AsyncInterface defaults to SyncAsync (sequential); ParallelModule and
  * AsyncSwooleModule bind their own adapter first, which wins over the default.
  *
- * Usage (standalone, sequential): install from a context module so AppModule
- * stays unchanged and the context string selects it.
+ * Usage (standalone, sequential; from a context module):
  *   namespace MyVendor\MyApp\Module;
  *
  *   final class AsyncModule extends AbstractModule
@@ -38,9 +37,6 @@ use Ray\Di\Scope;
  *           $this->install(new AsyncEmbedModule());
  *       }
  *   }
- *
- * With Swoole, install AsyncSwooleModule from the context module instead;
- * it includes this module.
  */
 final class AsyncEmbedModule extends AbstractModule
 {
