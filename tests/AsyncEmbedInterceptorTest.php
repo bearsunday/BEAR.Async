@@ -100,6 +100,32 @@ class AsyncEmbedInterceptorTest extends TestCase
         $this->assertSame('Page Title', $result->body['title']);
     }
 
+    public function testResolvesPendingRequestsOncePerInvocation(): void
+    {
+        $mainRo = new FakeResourceObject('app://self/article');
+        $resource = new FakeResource();
+        $provider = new class implements ProviderInterface {
+            public int $calls = 0;
+
+            public function get(): PendingRequests
+            {
+                $this->calls++;
+
+                return new PendingRequests(new SyncAsync());
+            }
+        };
+
+        $interceptor = new AsyncEmbedInterceptor($this->newProvider($resource), $provider);
+        $invocation = $this->newInvocation($mainRo, new ReflectionMethod(AsyncEmbedResource::class, 'withMultipleEmbeds'));
+        $invocation->proceed = static fn (): ResourceObject => $mainRo;
+
+        $interceptor->invoke($invocation);
+        $interceptor->invoke($invocation);
+
+        // One PendingRequests per invocation so every embed of a request lands in the same batch
+        $this->assertSame(2, $provider->calls);
+    }
+
     public function testWrapsRequestCreatedDuringProceed(): void
     {
         $mainRo = new FakeResourceObject('app://self/article');
