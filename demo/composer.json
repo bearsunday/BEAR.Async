@@ -19,6 +19,7 @@
         "bear/swoole": "^0.7",
         "ray/aop": "^2.12",
         "ray/aura-sql-module": "^1.13",
+        "ray/compiler": "^1.15",
         "ray/di": "^2.14",
         "ray/media-query": "^1.0"
     },
