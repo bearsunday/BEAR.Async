@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- Install `AsyncSwooleModule` before `PackageModule`; the documented reverse order lost the async bindings.
+- `AsyncEmbedInterceptor` resolves `PendingRequests` per invocation, so Swoole coroutines no longer share one instance.
+- `SwoolePendingRequestsProvider` throws `NotInCoroutineException` outside a coroutine.
+
+### Changed
+
+- `AsyncEmbedModule` binds `SyncAsync` as the default `AsyncInterface`.
+
 ## 0.4.0 - 2026-08-29
 
 ### BREAKING

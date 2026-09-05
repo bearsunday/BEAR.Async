@@ -32,13 +32,13 @@ use function extension_loaded;
  * - ext-swoole installed
  * - Running inside a Swoole coroutine context
  *
- * Usage:
+ * Usage (Ray.Di keeps the first binding, so install this module before PackageModule):
  *   class AppModule extends AbstractModule
  *   {
  *       protected function configure(): void
  *       {
- *           $this->install(new PackageModule());
  *           $this->install(new AsyncSwooleModule());
+ *           $this->install(new PackageModule());
  *       }
  *   }
  */

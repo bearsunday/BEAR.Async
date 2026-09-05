@@ -14,11 +14,12 @@
         "koriym/env-json": "^1.0",
         "bear/async": "@dev",
         "bear/resource": "^1.32",
-        "bear/package": "^1.14",
+        "bear/package": "^1.20",
         "bear/sunday": "^1.6",
         "bear/swoole": "^0.7",
         "ray/aop": "^2.12",
         "ray/aura-sql-module": "^1.13",
+        "ray/compiler": "^1.15",
         "ray/di": "^2.14",
         "ray/media-query": "^1.0"
     },

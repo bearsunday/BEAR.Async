@@ -39,11 +39,15 @@ final readonly class AsyncEmbedInterceptor implements EmbedInterceptorInterface
 {
     private const SELF_LINK = '_self';
 
-    /** @param ProviderInterface<ResourceInterface> $resourceProvider */
+    /**
+     * @param ProviderInterface<ResourceInterface> $resourceProvider
+     * @param ProviderInterface<PendingRequests>   $pendingProvider
+     */
     public function __construct(
         #[Set(ResourceInterface::class)]
         private ProviderInterface $resourceProvider,
-        private PendingRequests $allRequests,
+        #[Set(PendingRequests::class)]
+        private ProviderInterface $pendingProvider,
     ) {
     }
 
@@ -59,7 +63,9 @@ final readonly class AsyncEmbedInterceptor implements EmbedInterceptorInterface
         assert($ro instanceof ResourceObject);
         $query = $this->getArgsByInvocation($invocation);
         $embeds = $invocation->getMethod()->getAnnotations();
-        $this->embedResource($embeds, $ro, $query);
+        // Resolved per invocation: the binding may be coroutine-local (Swoole)
+        $pending = $this->pendingProvider->get();
+        $this->embedResource($embeds, $ro, $query, $pending);
 
         $result = $invocation->proceed();
         assert($result instanceof ResourceObject);
@@ -70,7 +76,7 @@ final readonly class AsyncEmbedInterceptor implements EmbedInterceptorInterface
              * @var mixed $value
              */
             foreach ($result->body as $key => $value) {
-                $result->body[$key] = $this->wrapAsyncRequests($value);
+                $result->body[$key] = $this->wrapAsyncRequests($value, $pending);
             }
         }
 
@@ -83,7 +89,7 @@ final readonly class AsyncEmbedInterceptor implements EmbedInterceptorInterface
      *
      * @throws EmbedException
      */
-    private function embedResource(array $embeds, ResourceObject $ro, array $query): void
+    private function embedResource(array $embeds, ResourceObject $ro, array $query, PendingRequests $pending): void
     {
         foreach ($embeds as $embed) {
             if (! $embed instanceof Embed) {
@@ -107,7 +113,7 @@ final readonly class AsyncEmbedInterceptor implements EmbedInterceptorInterface
 
                 $ro->body[$embed->rel] = new AsyncRequest(
                     new DeferredRequest($this->resourceProvider, Method::GET, $uri),
-                    $this->allRequests,
+                    $pending,
                 );
             } catch (BadRequestException $e) {
                 throw new EmbedException($embed->src, 500, $e);
@@ -168,19 +174,19 @@ final readonly class AsyncEmbedInterceptor implements EmbedInterceptorInterface
     }
 
     /** @psalm-suppress MixedAssignment */
-    private function wrapAsyncRequests(mixed $value): mixed
+    private function wrapAsyncRequests(mixed $value, PendingRequests $pending): mixed
     {
         if ($value instanceof AsyncRequest) {
             return $value;
         }
 
         if ($value instanceof AbstractRequest) {
-            return new AsyncRequest($value, $this->allRequests);
+            return new AsyncRequest($value, $pending);
         }
 
         if (is_array($value)) {
             foreach ($value as $k => $v) {
-                $value[$k] = $this->wrapAsyncRequests($v);
+                $value[$k] = $this->wrapAsyncRequests($v, $pending);
             }
         }
 

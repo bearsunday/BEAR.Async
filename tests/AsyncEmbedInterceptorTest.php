@@ -25,7 +25,7 @@ class AsyncEmbedInterceptorTest extends TestCase
         $mainRo = new FakeResourceObject('app://self/article');
         $resource = new FakeResource();
 
-        $interceptor = new AsyncEmbedInterceptor($this->newProvider($resource), new PendingRequests(new SyncAsync()));
+        $interceptor = new AsyncEmbedInterceptor($this->newProvider($resource), $this->newPendingProvider());
         $invocation = $this->newInvocation($mainRo, new ReflectionMethod(AsyncEmbedResource::class, 'onGet'));
         $invocation->proceed = function () use ($mainRo): ResourceObject {
                 $this->assertIsArray($mainRo->body);
@@ -51,7 +51,7 @@ class AsyncEmbedInterceptorTest extends TestCase
         $mainRo->body = 'string body'; // @phpstan-ignore assign.propertyType
         $resource = new FakeResource();
 
-        $interceptor = new AsyncEmbedInterceptor($this->newProvider($resource), new PendingRequests(new SyncAsync()));
+        $interceptor = new AsyncEmbedInterceptor($this->newProvider($resource), $this->newPendingProvider());
         $invocation = $this->newInvocation($mainRo, new ReflectionMethod(AsyncEmbedResource::class, 'withoutEmbed'));
         $invocation->proceed = static fn (): ResourceObject => $mainRo;
 
@@ -67,7 +67,7 @@ class AsyncEmbedInterceptorTest extends TestCase
         $mainRo->body = ['key' => 'value', 'number' => 42];
         $resource = new FakeResource();
 
-        $interceptor = new AsyncEmbedInterceptor($this->newProvider($resource), new PendingRequests(new SyncAsync()));
+        $interceptor = new AsyncEmbedInterceptor($this->newProvider($resource), $this->newPendingProvider());
         $invocation = $this->newInvocation($mainRo, new ReflectionMethod(AsyncEmbedResource::class, 'withoutEmbed'));
         $invocation->proceed = static fn (): ResourceObject => $mainRo;
 
@@ -83,7 +83,7 @@ class AsyncEmbedInterceptorTest extends TestCase
         $mainRo = new FakeResourceObject('app://self/article');
         $resource = new FakeResource();
 
-        $interceptor = new AsyncEmbedInterceptor($this->newProvider($resource), new PendingRequests(new SyncAsync()));
+        $interceptor = new AsyncEmbedInterceptor($this->newProvider($resource), $this->newPendingProvider());
         $invocation = $this->newInvocation($mainRo, new ReflectionMethod(AsyncEmbedResource::class, 'withMultipleEmbeds'));
         $invocation->proceed = static function () use ($mainRo): ResourceObject {
             $mainRo->body += ['title' => 'Page Title'];
@@ -100,13 +100,39 @@ class AsyncEmbedInterceptorTest extends TestCase
         $this->assertSame('Page Title', $result->body['title']);
     }
 
+    public function testResolvesPendingRequestsOncePerInvocation(): void
+    {
+        $mainRo = new FakeResourceObject('app://self/article');
+        $resource = new FakeResource();
+        $provider = new class implements ProviderInterface {
+            public int $calls = 0;
+
+            public function get(): PendingRequests
+            {
+                $this->calls++;
+
+                return new PendingRequests(new SyncAsync());
+            }
+        };
+
+        $interceptor = new AsyncEmbedInterceptor($this->newProvider($resource), $provider);
+        $invocation = $this->newInvocation($mainRo, new ReflectionMethod(AsyncEmbedResource::class, 'withMultipleEmbeds'));
+        $invocation->proceed = static fn (): ResourceObject => $mainRo;
+
+        $interceptor->invoke($invocation);
+        $interceptor->invoke($invocation);
+
+        // One PendingRequests per invocation so every embed of a request lands in the same batch
+        $this->assertSame(2, $provider->calls);
+    }
+
     public function testWrapsRequestCreatedDuringProceed(): void
     {
         $mainRo = new FakeResourceObject('app://self/article');
         $resource = new FakeResource();
         $request = $this->newRequest('app://self/late');
 
-        $interceptor = new AsyncEmbedInterceptor($this->newProvider($resource), new PendingRequests(new SyncAsync()));
+        $interceptor = new AsyncEmbedInterceptor($this->newProvider($resource), $this->newPendingProvider());
         $invocation = $this->newInvocation($mainRo, new ReflectionMethod(AsyncEmbedResource::class, 'withoutEmbed'));
         $invocation->proceed = static function () use ($mainRo, $request): ResourceObject {
             $mainRo->body = ['late' => $request];
@@ -148,5 +174,16 @@ class AsyncEmbedInterceptorTest extends TestCase
     private function newInvocation(ResourceObject $ro, ReflectionMethod $method): FakeMethodInvocation
     {
         return new FakeMethodInvocation($ro, $method, arguments: []);
+    }
+
+    /** @return ProviderInterface<PendingRequests> */
+    private function newPendingProvider(): ProviderInterface
+    {
+        return new class implements ProviderInterface {
+            public function get(): PendingRequests
+            {
+                return new PendingRequests(new SyncAsync());
+            }
+        };
     }
 }

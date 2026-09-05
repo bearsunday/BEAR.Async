@@ -153,8 +153,8 @@ class AppModule extends AbstractModule
 {
     protected function configure(): void
     {
-        $this->install(new PackageModule());
         $this->install(new AsyncSwooleModule());
+        $this->install(new PackageModule());
         $this->install(new PdoPoolEnvModule(
             'PDO_DSN',
             'PDO_USER',

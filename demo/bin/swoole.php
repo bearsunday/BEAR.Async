@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/autoload.php';
 
-use BEAR\AppMeta\Meta;
-use BEAR\Package\Module;
+use BEAR\Package\Injector as PackageInjector;
 use BEAR\Resource\Method;
 use BEAR\Resource\ResourceObject;
 use BEAR\Swoole\App;
 use BEAR\Swoole\SwooleModule;
 use BEAR\Swoole\SwooleRequestProvider;
 use BEAR\Sunday\Extension\Transfer\TransferInterface;
-use Ray\Di\Injector;
+use Ray\Compiler\CompiledInjector;
+use Ray\Di\AbstractModule;
 use Swoole\Coroutine;
 use Swoole\Database\PDOPool;
 use Swoole\Http\Request;
@@ -34,9 +34,28 @@ $context = getenv('APP_CONTEXT') ?: 'prod-swoole-hal-api-app';
 
 Coroutine::set(['hook_flags' => SWOOLE_HOOK_ALL]);
 
-$appModule = (new Module())(new Meta('BEAR\AsyncDemo', $context), $context);
-$appModule->override(new SwooleModule());
-$injector = new Injector(new SwooleModule($appModule));
+// Production contract for coroutine servers: compiled DI + singleton warmup.
+// The reflective injector resolves lazily per request; a coroutine suspension
+// inside a provider then races the shared resolver state.
+$injector = PackageInjector::getOverrideInstance(
+    'BEAR\AsyncDemo',
+    $context,
+    dirname(__DIR__),
+    new class extends AbstractModule {
+        protected function configure(): void
+        {
+            $this->install(new SwooleModule());
+            // Entry-point root: the compiler only generates scripts for bound indexes
+            $this->bind(App::class);
+        }
+    },
+);
+if ($injector instanceof CompiledInjector) {
+    Coroutine\run(static function () use ($injector): void {
+        $injector->warmup();
+    });
+}
+
 $app = $injector->getInstance(App::class);
 $prefillPdoPool = getenv('PDO_POOL_PREFILL');
 if ($prefillPdoPool === false || $prefillPdoPool !== '0') {

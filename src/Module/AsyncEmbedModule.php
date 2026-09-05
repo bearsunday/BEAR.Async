@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace BEAR\Async\Module;
 
+use BEAR\Async\Adapter\SyncAsync;
 use BEAR\Async\AsyncEmbedInterceptor;
+use BEAR\Async\AsyncInterface;
 use BEAR\Async\PendingRequests;
 use BEAR\Resource\EmbedInterceptorInterface;
 use Override;
@@ -22,25 +24,27 @@ use Ray\Di\Scope;
  * NOTE: This module is automatically installed by AsyncSwooleModule and ParallelModule.
  * You don't need to install it separately when using those modules.
  *
- * IMPORTANT: This module requires AsyncInterface to be bound.
+ * AsyncInterface defaults to SyncAsync (sequential); ParallelModule and
+ * AsyncSwooleModule bind their own adapter first, which wins over the default.
  *
- * Usage (standalone):
+ * Usage (standalone, synchronous fallback):
  *   class AppModule extends AbstractModule
  *   {
  *       protected function configure(): void
  *       {
- *           $this->bind(AsyncInterface::class)->to(SwooleAsync::class);
  *           $this->install(new AsyncEmbedModule());
+ *           $this->install(new PackageModule());
  *       }
  *   }
  *
- * Usage (recommended - with AsyncSwooleModule):
+ * Usage (recommended - with AsyncSwooleModule; Ray.Di keeps the first binding,
+ * so install async modules before PackageModule):
  *   class AppModule extends AbstractModule
  *   {
  *       protected function configure(): void
  *       {
- *           $this->install(new PackageModule());
  *           $this->install(new AsyncSwooleModule());  // Includes AsyncEmbedModule
+ *           $this->install(new PackageModule());
  *       }
  *   }
  */
@@ -49,6 +53,9 @@ final class AsyncEmbedModule extends AbstractModule
     #[Override]
     protected function configure(): void
     {
+        // Default adapter; runtime modules bind theirs first and win (first-binding-wins)
+        $this->bind(AsyncInterface::class)->to(SyncAsync::class)->in(Scope::SINGLETON);
+
         // PendingRequests must be singleton to collect all requests in one batch
         $this->bind(PendingRequests::class)->in(Scope::SINGLETON);
 
