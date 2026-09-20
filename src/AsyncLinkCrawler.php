@@ -18,7 +18,6 @@ use BEAR\Resource\Uri;
 use Override;
 use ReflectionMethod;
 
-use function array_key_exists;
 use function array_map;
 use function is_array;
 use function ucfirst;
@@ -43,8 +42,11 @@ use function uri_template;
  */
 final class AsyncLinkCrawler implements LinkCrawlerInterface
 {
-    /** @var array<string, array<mixed>|null> */
-    private array $cache = [];
+    /** @var array<string, RequestTask> Tasks already executed in this crawl, keyed by request hash */
+    private array $tasks = [];
+
+    /** @var array<string, true> Hashes whose nested links are already resolved (or in progress) */
+    private array $resolvedHashes = [];
 
     public function __construct(
         private readonly InvokerInterface $invoker,
@@ -60,7 +62,8 @@ final class AsyncLinkCrawler implements LinkCrawlerInterface
     {
         // Dedup scope is one crawl. Linker resolves a fresh crawler per invoke,
         // so this only matters if the crawler is ever bound as a singleton
-        $this->cache = [];
+        $this->tasks = [];
+        $this->resolvedHashes = [];
 
         // Process DataLoader-enabled links first
         /**
@@ -102,13 +105,15 @@ final class AsyncLinkCrawler implements LinkCrawlerInterface
         // Execute all tasks in parallel using the async adapter
         ($this->async)($batch->getTasks());
 
-        // Update cache with results
+        // Register executed tasks so dedup hits later in this crawl can reuse them
         foreach ($batch->getTasks() as $task) {
-            $this->cache[$task->getHash()] = $task->getResult();
+            $this->tasks[$task->getHash()] = $task;
         }
 
         // Process next level for all results
-        $this->processNextLevel($batch, $link);
+        foreach ($batch->getTasks() as $task) {
+            $this->resolveNestedLinks($task, $link);
+        }
     }
 
     /**
@@ -135,12 +140,12 @@ final class AsyncLinkCrawler implements LinkCrawlerInterface
             $request = new Request($this->invoker, $rel, Method::GET, $query);
             $hash = $request->hash();
 
-            // Check cache first
-            if (array_key_exists($hash, $this->cache)) {
-                /** @var array<mixed>|null $cachedResponse */
-                $cachedResponse = $this->cache[$hash];
+            // Reuse the executed task for this hash, resolving its nested links first
+            if (isset($this->tasks[$hash])) {
+                $task = $this->tasks[$hash];
+                $this->resolveNestedLinks($task, $link);
                 /** @psalm-suppress PossiblyInvalidArrayAssignment */
-                $body[$annotation->rel] = $cachedResponse;
+                $body[$annotation->rel] = $task->getResult();
 
                 continue;
             }
@@ -151,55 +156,65 @@ final class AsyncLinkCrawler implements LinkCrawlerInterface
     }
 
     /**
-     * Process next level for all batch results
+     * Resolve this task's own crawl links and store the deep result
+     *
+     * No-op when the hash is already resolved, so every copy of a shared
+     * resource (e.g. a diamond-shaped graph) carries the same nested data.
      */
-    private function processNextLevel(RequestBatch $batch, LinkType $link): void
+    private function resolveNestedLinks(RequestTask $task, LinkType $link): void
     {
-        foreach ($batch->getTasks() as $task) {
-            $result = $task->getResult();
-            if (! is_array($result)) {
-                continue;
+        $hash = $task->getHash();
+        if (isset($this->resolvedHashes[$hash])) {
+            return;
+        }
+
+        // Marked before descending: a cyclic link back here gets the shallow result
+        $this->resolvedHashes[$hash] = true;
+
+        $result = $task->getResult();
+        if (! is_array($result)) {
+            return;
+        }
+
+        // Determine if result is a list and process accordingly
+        if ($result === []) {
+            // Still need to trigger DataLoader for empty arrays
+            $this->processEmptyResult($task, $link);
+
+            return;
+        }
+
+        $resultList = $this->isList($result) ? $result : [$result];
+
+        // Get the nested annotations for this result
+        $request = $task->getRequest();
+        $nestedAnnotations = $this->getLinkAnnotations($request->resourceObject, $request->method);
+
+        // Check if there are any crawl annotations for this link
+        $hasCrawlAnnotation = false;
+        foreach ($nestedAnnotations as $annotation) {
+            if ($annotation->crawl === $link->key) {
+                $hasCrawlAnnotation = true;
+                break;
             }
+        }
 
-            // Determine if result is a list and process accordingly
-            if ($result === []) {
-                // Still need to trigger DataLoader for empty arrays
-                $this->processEmptyResult($task, $link);
+        if (! $hasCrawlAnnotation) {
+            return;
+        }
 
-                continue;
-            }
+        /** @var array<int, array<string, mixed>> $resultList */
+        $this->processLevel($nestedAnnotations, $link, $resultList);
 
-            $resultList = $this->isList($result) ? $result : [$result];
+        // Update the result with nested data
+        if ($this->isList($result)) {
+            $task->setResult($resultList);
 
-            // Get the nested annotations for this result
-            $request = $task->getRequest();
-            $nestedAnnotations = $this->getLinkAnnotations($request->resourceObject, $request->method);
+            return;
+        }
 
-            // Check if there are any crawl annotations for this link
-            $hasCrawlAnnotation = false;
-            foreach ($nestedAnnotations as $annotation) {
-                if ($annotation->crawl === $link->key) {
-                    $hasCrawlAnnotation = true;
-                    break;
-                }
-            }
-
-            if (! $hasCrawlAnnotation) {
-                continue;
-            }
-
-            /** @var array<int, array<string, mixed>> $resultList */
-            $this->processLevel($nestedAnnotations, $link, $resultList);
-
-            // Update the result with nested data
-            if ($this->isList($result)) {
-                $task->setResult($resultList);
-                continue;
-            }
-
-            if (isset($resultList[0])) {
-                $task->setResult($resultList[0]);
-            }
+        if (isset($resultList[0])) {
+            $task->setResult($resultList[0]);
         }
     }
 
