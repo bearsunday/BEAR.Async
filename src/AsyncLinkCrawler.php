@@ -176,7 +176,6 @@ final class AsyncLinkCrawler implements LinkCrawlerInterface
             return;
         }
 
-        // Determine if result is a list and process accordingly
         if ($result === []) {
             // Still need to trigger DataLoader for empty arrays
             $this->processEmptyResult($task, $link);
@@ -226,7 +225,7 @@ final class AsyncLinkCrawler implements LinkCrawlerInterface
         $request = $task->getRequest();
         $nestedAnnotations = $this->getLinkAnnotations($request->resourceObject, $request->method);
 
-        // Trigger DataLoader without re-entering crawl(), which would reset the cache mid-crawl
+        // Trigger DataLoader without re-entering crawl(), which would reset the crawl state mid-crawl
         /** @var array<int, array<string, mixed>> $emptyList */
         $emptyList = [];
         /**

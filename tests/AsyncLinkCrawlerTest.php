@@ -9,6 +9,9 @@ use BEAR\Async\Fake\FakeCrawlB;
 use BEAR\Async\Fake\FakeCrawlC;
 use BEAR\Async\Fake\FakeCrawlD;
 use BEAR\Async\Fake\FakeCrawlE;
+use BEAR\Async\Fake\FakeCrawlF;
+use BEAR\Async\Fake\FakeCrawlG;
+use BEAR\Async\Fake\FakeCrawlL;
 use BEAR\Async\Fake\FakeCrawlFactory;
 use BEAR\Async\Fake\FakeCrawlInvoker;
 use BEAR\Resource\Annotation\Link;
@@ -31,6 +34,9 @@ class AsyncLinkCrawlerTest extends TestCase
             '/c' => FakeCrawlC::class,
             '/d' => FakeCrawlD::class,
             '/e' => FakeCrawlE::class,
+            '/f' => FakeCrawlF::class,
+            '/g' => FakeCrawlG::class,
+            '/l' => FakeCrawlL::class,
         ]);
         $this->crawler = new AsyncLinkCrawler(
             $this->invoker,
@@ -105,5 +111,51 @@ class AsyncLinkCrawlerTest extends TestCase
             array_unique($this->invoker->invoked),
         );
         $this->assertCount(4, $this->invoker->invoked);
+    }
+
+    /**
+     * A --crawl--> L (list) --crawl--> D --crawl--> E
+     * A --crawl--> D
+     *
+     * The shared D is one row of a list result. The list must keep every row,
+     * and the row's copy of D must match the direct one.
+     */
+    public function testListResultRowsShareFullyCrawledResult(): void
+    {
+        $annotations = [
+            new Link(rel: 'l', href: 'app://self/l?id={id}', crawl: 'tree'),
+            new Link(rel: 'd', href: 'app://self/d?id={id}', crawl: 'tree'),
+        ];
+        $link = new LinkType('tree', LinkType::CRAWL_LINK);
+        $bodyList = [['id' => '1']];
+
+        $this->crawler->crawl($annotations, $link, $bodyList);
+
+        $body = $bodyList[0];
+        $this->assertIsArray($body['l']);
+        $this->assertCount(2, $body['l']);
+        $this->assertSame(['id' => '1'], $body['l'][0]['d']['e']);
+        $this->assertSame(['id' => '10'], $body['l'][1]['d']['e']);
+        $this->assertSame($body['l'][0]['d'], $body['d']);
+        $this->assertCount(5, $this->invoker->invoked);
+    }
+
+    /**
+     * A --crawl--> F --crawl--> G --crawl--> F
+     *
+     * A link back to a resource still being resolved receives its shallow body
+     * instead of recursing.
+     */
+    public function testCyclicLinkReceivesShallowResult(): void
+    {
+        $annotations = [new Link(rel: 'f', href: 'app://self/f?id={id}', crawl: 'tree')];
+        $link = new LinkType('tree', LinkType::CRAWL_LINK);
+        $bodyList = [['id' => '1']];
+
+        $this->crawler->crawl($annotations, $link, $bodyList);
+
+        $body = $bodyList[0];
+        $this->assertSame(['id' => '1'], $body['f']['g']['f']);
+        $this->assertSame(['app://self/f?id=1', 'app://self/g?id=1'], $this->invoker->invoked);
     }
 }
