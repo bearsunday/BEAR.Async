@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - Document installing `AsyncSwooleModule` from a `swoole` context module; the `AppModule` example lost the async bindings.
 - `AsyncEmbedInterceptor` resolves `PendingRequests` per invocation, so Swoole coroutines no longer share one instance.
+- `AsyncLinkCrawler` returns the fully crawled body for a resource reached through more than one crawl path.
 - `SwoolePendingRequestsProvider` throws `NotInCoroutineException` outside a coroutine.
 
 ### Changed
