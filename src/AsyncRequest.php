@@ -67,11 +67,11 @@ final class AsyncRequest extends AbstractRequest
     public function __invoke(array|null $query = null): ResourceObject
     {
         $previousKey = $this->hash();
-        $ro = ($this->inner)($query);
         if ($query !== null) {
             $this->result = null;
         }
 
+        $ro = ($this->inner)($query);
         $this->query = $this->inner->query;
         $this->uri = $this->inner->toUri();
         $this->pendingRequests->rekey($previousKey, $this);
