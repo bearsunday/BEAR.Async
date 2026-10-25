@@ -71,6 +71,7 @@ final class DeferredRequest extends AbstractRequest
     {
         if ($query !== null) {
             $this->query = array_merge($this->query, $query);
+            $this->result = null;
         }
 
         $request = $this->resourceProvider->get()->newRequest($this->method, $this->requestUri, $this->query);
@@ -93,6 +94,7 @@ final class DeferredRequest extends AbstractRequest
         $this->query = $query;
         $this->uri = $this->toUri();
         $this->resourceObject->uri = new Uri($this->requestUri, $this->query);
+        $this->result = null;
 
         return $this;
     }
@@ -104,6 +106,7 @@ final class DeferredRequest extends AbstractRequest
         $this->query = array_merge($this->query, $query);
         $this->uri = $this->toUri();
         $this->resourceObject->uri = new Uri($this->requestUri, $this->query);
+        $this->result = null;
 
         return $this;
     }
@@ -130,6 +133,7 @@ final class DeferredRequest extends AbstractRequest
     public function linkSelf(string $linkKey): RequestInterface
     {
         $this->links[] = new LinkType($linkKey, LinkType::SELF_LINK);
+        $this->result = null;
 
         return $this;
     }
@@ -138,6 +142,7 @@ final class DeferredRequest extends AbstractRequest
     public function linkNew(string $linkKey): RequestInterface
     {
         $this->links[] = new LinkType($linkKey, LinkType::NEW_LINK);
+        $this->result = null;
 
         return $this;
     }
@@ -146,6 +151,7 @@ final class DeferredRequest extends AbstractRequest
     public function linkCrawl(string $linkKey): RequestInterface
     {
         $this->links[] = new LinkType($linkKey, LinkType::CRAWL_LINK);
+        $this->result = null;
 
         return $this;
     }

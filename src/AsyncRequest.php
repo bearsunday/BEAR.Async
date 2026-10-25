@@ -67,6 +67,10 @@ final class AsyncRequest extends AbstractRequest
     public function __invoke(array|null $query = null): ResourceObject
     {
         $previousKey = $this->hash();
+        if ($query !== null) {
+            $this->result = null;
+        }
+
         $ro = ($this->inner)($query);
         $this->query = $this->inner->query;
         $this->uri = $this->inner->toUri();
@@ -127,6 +131,7 @@ final class AsyncRequest extends AbstractRequest
         $this->query = $this->inner->query;
         $this->uri = $this->inner->toUri();
         $this->pendingRequests->rekey($previousKey, $this);
+        $this->result = null;
 
         return $this;
     }
@@ -140,6 +145,7 @@ final class AsyncRequest extends AbstractRequest
         $this->query = $this->inner->query;
         $this->uri = $this->inner->toUri();
         $this->pendingRequests->rekey($previousKey, $this);
+        $this->result = null;
 
         return $this;
     }
@@ -151,6 +157,7 @@ final class AsyncRequest extends AbstractRequest
         $this->inner->linkSelf($linkKey);
         $this->links = $this->inner->links;
         $this->pendingRequests->rekey($previousKey, $this);
+        $this->result = null;
 
         return $this;
     }
@@ -162,6 +169,7 @@ final class AsyncRequest extends AbstractRequest
         $this->inner->linkNew($linkKey);
         $this->links = $this->inner->links;
         $this->pendingRequests->rekey($previousKey, $this);
+        $this->result = null;
 
         return $this;
     }
@@ -173,6 +181,7 @@ final class AsyncRequest extends AbstractRequest
         $this->inner->linkCrawl($linkKey);
         $this->links = $this->inner->links;
         $this->pendingRequests->rekey($previousKey, $this);
+        $this->result = null;
 
         return $this;
     }
