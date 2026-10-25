@@ -12,8 +12,11 @@ use BEAR\Async\Fake\FakeResourceObject;
 use BEAR\Resource\AbstractRequest;
 use BEAR\Resource\Method;
 use BEAR\Resource\Request;
+use Closure;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
+use function count;
 use function json_encode;
 
 use const JSON_THROW_ON_ERROR;
@@ -356,5 +359,49 @@ class AsyncRequestTest extends TestCase
 
         $this->assertNotSame($originalHash, $asyncRequest->hash());
         $this->assertNotEmpty((string) $asyncRequest);
+    }
+
+    /** @return array<string, array{Closure(AbstractRequest): mixed}> */
+    public static function changeAfterReadProvider(): array
+    {
+        return [
+            'withQuery' => [static fn (AbstractRequest $request): mixed => $request->withQuery(['id' => '2'])],
+            'addQuery' => [static fn (AbstractRequest $request): mixed => $request->addQuery(['id' => '2'])],
+            'invoke with a query' => [static fn (AbstractRequest $request): mixed => $request(['id' => '2'])],
+            'linkSelf' => [static fn (AbstractRequest $request): mixed => $request->linkSelf('next')],
+            'linkNew' => [static fn (AbstractRequest $request): mixed => $request->linkNew('next')],
+            'linkCrawl' => [static fn (AbstractRequest $request): mixed => $request->linkCrawl('next')],
+        ];
+    }
+
+    /** @param Closure(AbstractRequest): mixed $change */
+    #[DataProvider('changeAfterReadProvider')]
+    public function testAsyncRequestReadAfterAChangeExecutesAgain(Closure $change): void
+    {
+        $ro = new FakeResourceObject('app://self/user');
+        $invoker = new FakeInvoker($ro);
+        $asyncRequest = new AsyncRequest(new Request($invoker, $ro, Method::GET, ['id' => '1']), new PendingRequests(new SyncAsync()));
+        $this->assertSame([], $asyncRequest->body);
+
+        $change($asyncRequest);
+        $executions = $invoker->invokeCount;
+
+        $this->assertSame([], $asyncRequest->body);
+        $this->assertSame($executions + 1, $invoker->invokeCount);
+    }
+
+    /** @param Closure(AbstractRequest): mixed $change */
+    #[DataProvider('changeAfterReadProvider')]
+    public function testDeferredRequestReadAfterAChangeExecutesAgain(Closure $change): void
+    {
+        $resource = new FakeResource();
+        $request = new DeferredRequest(new FakePendingResourceProvider($resource), Method::GET, 'app://self/user', ['id' => '1']);
+        $this->assertSame([], $request->body);
+
+        $change($request);
+        $executions = count($resource->newRequests);
+
+        $this->assertSame([], $request->body);
+        $this->assertCount($executions + 1, $resource->newRequests);
     }
 }
