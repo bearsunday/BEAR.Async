@@ -42,7 +42,7 @@ use const PREG_SET_ORDER;
  */
 final class DeferredRequest extends AbstractRequest
 {
-    /** Fragment-less; any `#link=type:rel,...` is parsed into $this->links instead (see splitLinks()). */
+    /** Fragment-less; a `#link=...` fragment is parsed into $this->links by splitLinks() instead. */
     private readonly string $requestUri;
 
     /**
@@ -84,18 +84,11 @@ final class DeferredRequest extends AbstractRequest
     }
 
     /**
-     * Split a URI into its fragment-less form and the links its
-     * `#link=type:rel,...` fragment carries.
+     * Split off a `#link=type:rel,...` fragment into LinkType[].
      *
-     * Mirrors the grammar bear/resource's own Resource::newRequest() reads
-     * from a URI's fragment, so a DeferredRequest built from a URI that
-     * carries one (reachable via #[Embed(src: '...#link=...')]) ends up
-     * holding those links the same way a Request built by newRequest()
-     * would: in $this->links, with the fragment stripped from the URI.
-     * That keeps toUri()/hash()/__invoke() in agreement under every
-     * adapter, instead of __invoke() alone (via newRequest()) following
-     * links that toUri()/hash() never saw. Any other non-empty fragment is
-     * rejected rather than silently dropped.
+     * A private copy of Resource::links()'s grammar, since bear/resource
+     * exposes no public parser for it. Any other non-empty fragment
+     * throws UriException, matching bear/resource.
      *
      * @return array{0: string, 1: list<LinkType>}
      *

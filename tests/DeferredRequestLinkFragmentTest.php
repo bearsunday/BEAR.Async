@@ -10,10 +10,13 @@ use BEAR\Async\Fake\LinkProbe\Resource\App\Blog;
 use BEAR\Resource\Exception\UriException;
 use BEAR\Resource\Method;
 use BEAR\Resource\Module\ResourceModule;
+use BEAR\Resource\Request;
 use BEAR\Resource\ResourceInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Ray\Di\Injector;
 
+use function assert;
 use function is_dir;
 use function json_decode;
 use function rmdir;
@@ -51,27 +54,81 @@ final class DeferredRequestLinkFragmentTest extends TestCase
         }
     }
 
-    public function testToUriHashAndInvokeAgreeOnAFragmentLink(): void
+    public function testToUriAndInvokeMatchARealRequestBuiltFromTheSameFragment(): void
     {
-        $fromFragment = new DeferredRequest($this->provider, Method::GET, 'app://self/author?id=1#link=self:blog');
-        $fromExplicitCall = (new DeferredRequest($this->provider, Method::GET, 'app://self/author', ['id' => 1]))
-            ->linkSelf('blog');
+        $uri = 'app://self/author?id=1#link=self:blog';
+        $real = $this->resource->newRequest(Method::GET, $uri);
+        assert($real instanceof Request);
+        $deferred = new DeferredRequest($this->provider, Method::GET, $uri);
 
-        $this->assertSame('app://self/author?id=1#link=self:blog', $fromFragment->toUri());
-        $this->assertSame($fromExplicitCall->toUri(), $fromFragment->toUri());
-        $this->assertSame($fromExplicitCall->hash(), $fromFragment->hash());
+        $this->assertSame($real->toUri(), $deferred->toUri());
+        $this->assertEquals($real->links, $deferred->links);
 
-        $ro = $fromFragment();
+        $ro = $deferred();
 
         $this->assertSame(1, Blog::$calls, 'the self-linked resource must be fetched exactly once');
         $this->assertSame('Athos blog', $ro->body['name']);
     }
 
-    public function testRejectsAFragmentThatIsNotTheLinkForm(): void
+    /** @return array<string, array{0: string}> */
+    public static function validFragments(): array
     {
-        $this->expectException(UriException::class);
+        return [
+            'no fragment' => [''],
+            'bare hash' => ['#'],
+            'self link' => ['#link=self:blog'],
+            'new and crawl links' => ['#link=new:a,crawl:b-c_d'],
+        ];
+    }
 
-        new DeferredRequest($this->provider, Method::GET, 'app://self/author?id=1#oops');
+    /**
+     * For every fragment newRequest() accepts, DeferredRequest must accept
+     * it too and hold the same links, in the same order.
+     */
+    #[DataProvider('validFragments')]
+    public function testHoldsTheSameLinksNewRequestDoesForAValidFragment(string $fragment): void
+    {
+        $uri = 'app://self/author?id=1' . $fragment;
+        $real = $this->resource->newRequest(Method::GET, $uri);
+        assert($real instanceof Request);
+
+        $deferred = new DeferredRequest($this->provider, Method::GET, $uri);
+
+        $this->assertEquals($real->links, $deferred->links);
+    }
+
+    /** @return array<string, array{0: string}> */
+    public static function invalidFragments(): array
+    {
+        return [
+            'link= with nothing after' => ['#link='],
+            'empty rel' => ['#link=self:'],
+            'trailing comma' => ['#link=self:blog,'],
+            'unknown link type' => ['#link=next:x'],
+            'rel with invalid characters' => ['#link=self:a%20b'],
+            'non-link fragment' => ['#title'],
+            'key=value fragment' => ['#key=x'],
+        ];
+    }
+
+    /**
+     * For every fragment newRequest() rejects, DeferredRequest must reject
+     * it too, the same way (UriException).
+     */
+    #[DataProvider('invalidFragments')]
+    public function testRejectsTheSameFragmentNewRequestRejects(string $fragment): void
+    {
+        $uri = 'app://self/author?id=1' . $fragment;
+
+        try {
+            $this->resource->newRequest(Method::GET, $uri);
+            $this->fail("newRequest() was expected to throw UriException for {$uri}");
+        } catch (UriException) {
+            // sanity check that the fixture's grammar assumption holds
+        }
+
+        $this->expectException(UriException::class);
+        new DeferredRequest($this->provider, Method::GET, $uri);
     }
 
     /**
