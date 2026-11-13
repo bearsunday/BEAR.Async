@@ -106,6 +106,8 @@ final class DeferredRequestLinkFragmentTest extends TestCase
             'trailing comma' => ['#link=self:blog,'],
             'unknown link type' => ['#link=next:x'],
             'rel with invalid characters' => ['#link=self:a%20b'],
+            'rel with a dot' => ['#link=self:a.b'],
+            'rel with a tilde' => ['#link=self:a~b'],
             'non-link fragment' => ['#title'],
             'key=value fragment' => ['#key=x'],
         ];
@@ -131,14 +133,7 @@ final class DeferredRequestLinkFragmentTest extends TestCase
         new DeferredRequest($this->provider, Method::GET, $uri);
     }
 
-    /**
-     * Before DeferredRequest parsed a URI's `#link=...` fragment into
-     * $this->links, a request built from that fragment hashed identically
-     * to the plain request for the same URI (toUri() silently dropped the
-     * fragment, and $this->links stayed empty). PendingRequests dedups by
-     * hash, so sharing a batch meant one of the two never actually ran and
-     * both resolved to whichever did.
-     */
+    /** PendingRequests runs one request per hash, so a linked and a plain request to one URI must hash apart */
     public function testFragmentLinkedAndPlainRequestsDoNotCollideInOneBatch(): void
     {
         $pending = new PendingRequests(new SyncAsync());
