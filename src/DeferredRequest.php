@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace BEAR\Async;
 
 use BEAR\Resource\AbstractRequest;
+use BEAR\Resource\Exception\UriException;
 use BEAR\Resource\InvokerInterface;
 use BEAR\Resource\LinkType;
 use BEAR\Resource\Method;
 use BEAR\Resource\NullResourceObject;
+use BEAR\Resource\Request;
 use BEAR\Resource\RequestInterface;
 use BEAR\Resource\ResourceInterface;
 use BEAR\Resource\ResourceObject;
@@ -18,8 +20,15 @@ use Override;
 use Ray\Di\ProviderInterface;
 
 use function array_merge;
+use function explode;
 use function md5;
+use function parse_url;
+use function preg_match;
+use function preg_match_all;
 use function serialize;
+
+use const PHP_URL_FRAGMENT;
+use const PREG_SET_ORDER;
 
 /**
  * Defers ResourceObject construction until the request is actually invoked.
@@ -33,18 +42,27 @@ use function serialize;
  */
 final class DeferredRequest extends AbstractRequest
 {
+    /** Fragment-less; a `#link=...` fragment is parsed into $this->links by splitLinks() instead. */
+    private readonly string $requestUri;
+
     /**
      * @param ProviderInterface<ResourceInterface> $resourceProvider
      * @param Query                               $query
      * @param list<LinkType>                      $links
+     *
+     * @throws UriException if $requestUri carries a fragment other than `#link=type:rel,...`
      */
     public function __construct(
         private readonly ProviderInterface $resourceProvider,
         Method $method,
-        private readonly string $requestUri,
+        string $requestUri,
         array $query = [],
         array $links = [],
     ) {
+        [$requestUri, $fragmentLinks] = self::splitLinks($requestUri);
+        $this->requestUri = $requestUri;
+        $links = array_merge($fragmentLinks, $links);
+
         $resourceObject = new NullResourceObject();
         $resourceObject->uri = new Uri($requestUri, $query);
 
@@ -63,6 +81,40 @@ final class DeferredRequest extends AbstractRequest
             $links,
         );
         $this->uri = $this->toUri();
+    }
+
+    /**
+     * Split off a `#link=type:rel,...` fragment into LinkType[].
+     *
+     * A private copy of Resource::links()'s grammar, since bear/resource
+     * exposes no public parser for it. Any other non-empty fragment
+     * throws UriException, matching bear/resource.
+     *
+     * @return array{0: string, 1: list<LinkType>}
+     *
+     * @throws UriException
+     */
+    private static function splitLinks(string $uri): array
+    {
+        $fragment = (string) parse_url($uri, PHP_URL_FRAGMENT);
+        if ($fragment === '') {
+            return [$uri, []];
+        }
+
+        $link = '(self|new|crawl):([A-Za-z0-9_-]+)';
+        if (preg_match("/\Alink={$link}(,{$link})*\z/", $fragment) !== 1) {
+            throw new UriException($uri, 500);
+        }
+
+        preg_match_all("/{$link}/", $fragment, $matches, PREG_SET_ORDER);
+        $links = [];
+        foreach ($matches as [, $type, $rel]) {
+            $links[] = new LinkType($rel, $type);
+        }
+
+        [$base] = explode('#', $uri, 2);
+
+        return [$base, $links];
     }
 
     /** @param Query|null $query */
@@ -120,7 +172,11 @@ final class DeferredRequest extends AbstractRequest
     #[Override]
     public function toUri(): string
     {
-        return (string) new Uri($this->requestUri, $this->query);
+        $ro = new NullResourceObject();
+        $ro->uri = new Uri($this->requestUri, $this->query);
+
+        // Request owns the format of the links in a URI
+        return (new Request($this->invoker, $ro, $this->method, $ro->uri->query, $this->links))->toUri();
     }
 
     #[Override]
@@ -133,6 +189,7 @@ final class DeferredRequest extends AbstractRequest
     public function linkSelf(string $linkKey): RequestInterface
     {
         $this->links[] = new LinkType($linkKey, LinkType::SELF_LINK);
+        $this->uri = $this->toUri();
         $this->result = null;
 
         return $this;
@@ -142,6 +199,7 @@ final class DeferredRequest extends AbstractRequest
     public function linkNew(string $linkKey): RequestInterface
     {
         $this->links[] = new LinkType($linkKey, LinkType::NEW_LINK);
+        $this->uri = $this->toUri();
         $this->result = null;
 
         return $this;
@@ -151,6 +209,7 @@ final class DeferredRequest extends AbstractRequest
     public function linkCrawl(string $linkKey): RequestInterface
     {
         $this->links[] = new LinkType($linkKey, LinkType::CRAWL_LINK);
+        $this->uri = $this->toUri();
         $this->result = null;
 
         return $this;

@@ -73,7 +73,6 @@ class PendingRequestsTest extends TestCase
         $crawled->linkCrawl('tree');
 
         $this->assertNotSame($plain->hash(), $crawled->hash());
-        $this->assertSame($plain->toUri(), $crawled->toUri());
 
         $pendingRequests = new PendingRequests(new SyncAsync());
         $asyncPlain = new AsyncRequest($plain, $pendingRequests);

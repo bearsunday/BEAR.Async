@@ -308,8 +308,19 @@ class AsyncRequestTest extends TestCase
         $asyncPlain = new AsyncRequest($plain, $pendingRequests);
         $asyncCrawled = new AsyncRequest($crawled, $pendingRequests);
 
-        $this->assertSame($asyncPlain->toUri(), $asyncCrawled->toUri());
         $this->assertNotSame($asyncPlain->hash(), $asyncCrawled->hash());
+    }
+
+    public function testDeferredRequestUriReadsTheSameAsARequests(): void
+    {
+        $provider = new FakePendingResourceProvider(new FakeResource());
+        $deferred = new DeferredRequest($provider, Method::GET, 'app://self/user', ['id' => 1]);
+        $deferred->linkSelf('blog');
+        $ro = new FakeResourceObject('app://self/user');
+        $request = (new Request(new FakeInvoker($ro), $ro, Method::GET, ['id' => 1]))->linkSelf('blog');
+
+        $this->assertSame($request->toUri(), $deferred->toUri());
+        $this->assertSame($request->toUri(), (new AsyncRequest($deferred, new PendingRequests(new SyncAsync())))->toUri());
     }
 
     public function testLinkCrawlRekeysPendingRequest(): void
