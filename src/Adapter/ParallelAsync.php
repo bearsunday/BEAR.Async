@@ -40,11 +40,6 @@ use function sprintf;
  * {@see TaskNotDispatchedException} rather than silently leaving its
  * result unset.
  *
- * Links: an AsyncRequest's toUri() carries its linkSelf()/linkNew()/
- * linkCrawl() calls as a `#link=type:rel,...` fragment; the worker's
- * Resource::newRequest() restores them from the URI, so the link graph
- * matches what would happen synchronously.
- *
  * On first use, initializePool() warms exactly one worker synchronously
  * before any task is dispatched. This serializes the (expensive) cold DI
  * container build so the remaining pool threads hit a warm

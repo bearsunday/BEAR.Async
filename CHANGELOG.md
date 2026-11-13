@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - `AsyncRequest` and `DeferredRequest` read once and then changed with `withQuery()`, `addQuery()`, `__invoke()` with a query, or `linkSelf()` / `linkNew()` / `linkCrawl()` now execute again on the next read instead of returning the stale result (#31).
-- Ready for bear/resource 1.35, where `toUri()` carries the links of a request as a `#link=type:rel,...` fragment: `DeferredRequest::toUri()` writes them the way `Request::toUri()` does, and `ParallelAsync` passes the URI with its link fragment to the worker instead of replaying the links separately, so a link is no longer followed twice.
+- Ready for bear/resource's upcoming `#link=type:rel,...` URI fragment (bear/resource #389): `DeferredRequest::toUri()`/`hash()` carry a request's links the way `Request::toUri()` does, and `ParallelAsync`'s worker rebuilds the request from that URI instead of replaying `linkSelf()`/`linkNew()`/`linkCrawl()` from a separate array.
 
 ## 0.5.0 - 2026-09-22
 
