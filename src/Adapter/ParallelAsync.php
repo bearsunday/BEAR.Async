@@ -13,7 +13,6 @@ use BEAR\Async\Qualifier\PoolSize;
 use BEAR\Async\RequestTask;
 use BEAR\Async\Worker\PayloadValidator;
 use BEAR\Async\Worker\WorkerResourceCache;
-use BEAR\Resource\LinkType;
 use BEAR\Resource\Method;
 use Override;
 use parallel\Future;
@@ -23,7 +22,6 @@ use Throwable;
 use function array_keys;
 use function array_values;
 use function dirname;
-use function explode;
 use function sprintf;
 
 /**
@@ -42,9 +40,10 @@ use function sprintf;
  * {@see TaskNotDispatchedException} rather than silently leaving its
  * result unset.
  *
- * Link replay: requests carrying linkSelf()/linkNew()/linkCrawl() have
- * those links replayed inside the worker via ResourceInterface::newRequest()
- * so the embedded resource graph matches what would happen synchronously.
+ * Links: an AsyncRequest's toUri() carries its linkSelf()/linkNew()/
+ * linkCrawl() calls as a `#link=type:rel,...` fragment; the worker's
+ * Resource::newRequest() restores them from the URI, so the link graph
+ * matches what would happen synchronously.
  *
  * On first use, initializePool() warms exactly one worker synchronously
  * before any task is dispatched. This serializes the (expensive) cold DI
@@ -160,34 +159,18 @@ final class ParallelAsync implements AsyncInterface
         foreach ($requestList as $i => $request) {
             $runtime = $this->pool[$i % $this->poolSize];
             [$method, $uri, $query] = $this->extractMethodUriAndQuery($request);
-            $links = $this->extractLinks($request);
             PayloadValidator::assertCopyable($query, '$query');
-            PayloadValidator::assertCopyable($links, '$links');
 
             $future = $runtime->run(
-                /**
-                 * @param array<string, mixed>               $query
-                 * @param list<array{key: string, type: string}> $links
-                 */
-                static function (string $name, string $context, string $appDir, string $method, string $uri, array $query, array $links): string {
+                /** @param array<string, mixed> $query */
+                static function (string $name, string $context, string $appDir, string $method, string $uri, array $query): string {
                     $resource = WorkerResourceCache::getOrInit($name, $context, $appDir);
                     /** @var array<string, mixed> $query */
-                    $request = $resource->newRequest(Method::from($method), $uri, $query);
-                    foreach ($links as $link) {
-                        /** @var array{key: string, type: string} $link */
-                        match ($link['type']) {
-                            LinkType::SELF_LINK => $request->linkSelf($link['key']),
-                            LinkType::NEW_LINK => $request->linkNew($link['key']),
-                            LinkType::CRAWL_LINK => $request->linkCrawl($link['key']),
-                            default => null,
-                        };
-                    }
-
-                    $ro = $request();
+                    $ro = $resource->newRequest(Method::from($method), $uri, $query)();
 
                     return (string) $ro;
                 },
-                [$this->name, $this->context, $this->appDir, $method, $uri, $query, $links],
+                [$this->name, $this->context, $this->appDir, $method, $uri, $query],
             );
             if ($future !== null) {
                 $futures[$i] = $future;
@@ -226,35 +209,15 @@ final class ParallelAsync implements AsyncInterface
      *
      * The method crosses the thread boundary as its backing string and is
      * replayed in the worker via Method::from(), so non-GET embeds keep
-     * their verb instead of degrading to GET. The URI goes without its
-     * link fragment: the worker adds the links from extractLinks().
+     * their verb instead of degrading to GET. The URI carries its
+     * `#link=type:rel,...` fragment, so Resource::newRequest() in the
+     * worker restores the links without the caller replaying them.
      *
      * @return array{0: string, 1: string, 2: array<string, mixed>}
      */
     private function extractMethodUriAndQuery(AsyncRequest $asyncRequest): array
     {
-        [$uri] = explode('#', $asyncRequest->toUri(), 2);
-
-        return [$asyncRequest->method->value, $uri, $asyncRequest->query];
-    }
-
-    /**
-     * Extract a copyable list of links from an AsyncRequest
-     *
-     * BEAR\Resource\LinkType objects cannot cross the ext-parallel thread
-     * boundary, so they are flattened to plain arrays and replayed inside
-     * the worker via linkSelf()/linkNew()/linkCrawl().
-     *
-     * @return list<array{key: string, type: string}>
-     */
-    private function extractLinks(AsyncRequest $asyncRequest): array
-    {
-        $links = [];
-        foreach ($asyncRequest->links as $link) {
-            $links[] = ['key' => $link->key, 'type' => $link->type];
-        }
-
-        return $links;
+        return [$asyncRequest->method->value, $asyncRequest->toUri(), $asyncRequest->query];
     }
 
     /**
