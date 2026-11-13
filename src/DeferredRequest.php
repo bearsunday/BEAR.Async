@@ -9,6 +9,7 @@ use BEAR\Resource\InvokerInterface;
 use BEAR\Resource\LinkType;
 use BEAR\Resource\Method;
 use BEAR\Resource\NullResourceObject;
+use BEAR\Resource\Request;
 use BEAR\Resource\RequestInterface;
 use BEAR\Resource\ResourceInterface;
 use BEAR\Resource\ResourceObject;
@@ -120,7 +121,11 @@ final class DeferredRequest extends AbstractRequest
     #[Override]
     public function toUri(): string
     {
-        return (string) new Uri($this->requestUri, $this->query);
+        $ro = new NullResourceObject();
+        $ro->uri = new Uri($this->requestUri, $this->query);
+
+        // Request owns the format of the links in a URI
+        return (new Request($this->invoker, $ro, $this->method, $ro->uri->query, $this->links))->toUri();
     }
 
     #[Override]
@@ -133,6 +138,7 @@ final class DeferredRequest extends AbstractRequest
     public function linkSelf(string $linkKey): RequestInterface
     {
         $this->links[] = new LinkType($linkKey, LinkType::SELF_LINK);
+        $this->uri = $this->toUri();
         $this->result = null;
 
         return $this;
@@ -142,6 +148,7 @@ final class DeferredRequest extends AbstractRequest
     public function linkNew(string $linkKey): RequestInterface
     {
         $this->links[] = new LinkType($linkKey, LinkType::NEW_LINK);
+        $this->uri = $this->toUri();
         $this->result = null;
 
         return $this;
@@ -151,6 +158,7 @@ final class DeferredRequest extends AbstractRequest
     public function linkCrawl(string $linkKey): RequestInterface
     {
         $this->links[] = new LinkType($linkKey, LinkType::CRAWL_LINK);
+        $this->uri = $this->toUri();
         $this->result = null;
 
         return $this;

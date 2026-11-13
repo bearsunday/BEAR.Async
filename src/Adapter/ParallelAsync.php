@@ -23,6 +23,7 @@ use Throwable;
 use function array_keys;
 use function array_values;
 use function dirname;
+use function explode;
 use function sprintf;
 
 /**
@@ -225,13 +226,16 @@ final class ParallelAsync implements AsyncInterface
      *
      * The method crosses the thread boundary as its backing string and is
      * replayed in the worker via Method::from(), so non-GET embeds keep
-     * their verb instead of degrading to GET.
+     * their verb instead of degrading to GET. The URI goes without its
+     * link fragment: the worker adds the links from extractLinks().
      *
      * @return array{0: string, 1: string, 2: array<string, mixed>}
      */
     private function extractMethodUriAndQuery(AsyncRequest $asyncRequest): array
     {
-        return [$asyncRequest->method->value, $asyncRequest->toUri(), $asyncRequest->query];
+        [$uri] = explode('#', $asyncRequest->toUri(), 2);
+
+        return [$asyncRequest->method->value, $uri, $asyncRequest->query];
     }
 
     /**
