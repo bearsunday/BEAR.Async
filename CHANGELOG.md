@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - `AsyncRequest` and `DeferredRequest` read once and then changed with `withQuery()`, `addQuery()`, `__invoke()` with a query, or `linkSelf()` / `linkNew()` / `linkCrawl()` now execute again on the next read instead of returning the stale result (#31).
 - Ready for bear/resource's upcoming `#link=type:rel,...` URI fragment (bear/resource #389): `DeferredRequest::toUri()`/`hash()` carry a request's links the way `Request::toUri()` does, and `ParallelAsync`'s worker rebuilds the request from that URI instead of replaying `linkSelf()`/`linkNew()`/`linkCrawl()` from a separate array.
+- `DeferredRequest` built from a URI that already carries a `#link=type:rel,...` fragment (reachable via `#[Embed(src: '...#link=...')]`) now parses that fragment into its own links and strips it from the URI it keeps, the way `Resource::newRequest()` does. Previously the fragment was silently dropped from `toUri()`/`hash()` while `__invoke()` still followed it, so such a request could hash the same as the plain request for that URI and collide with it in one `PendingRequests` batch; a fragment that isn't the `link=...` form now raises `UriException` instead of being ignored.
 
 ## 0.5.0 - 2026-09-22
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BEAR\Async;
 
 use BEAR\Resource\AbstractRequest;
+use BEAR\Resource\Exception\UriException;
 use BEAR\Resource\InvokerInterface;
 use BEAR\Resource\LinkType;
 use BEAR\Resource\Method;
@@ -19,8 +20,15 @@ use Override;
 use Ray\Di\ProviderInterface;
 
 use function array_merge;
+use function explode;
 use function md5;
+use function parse_url;
+use function preg_match;
+use function preg_match_all;
 use function serialize;
+
+use const PHP_URL_FRAGMENT;
+use const PREG_SET_ORDER;
 
 /**
  * Defers ResourceObject construction until the request is actually invoked.
@@ -34,18 +42,27 @@ use function serialize;
  */
 final class DeferredRequest extends AbstractRequest
 {
+    /** Fragment-less; any `#link=type:rel,...` is parsed into $this->links instead (see splitLinks()). */
+    private readonly string $requestUri;
+
     /**
      * @param ProviderInterface<ResourceInterface> $resourceProvider
      * @param Query                               $query
      * @param list<LinkType>                      $links
+     *
+     * @throws UriException if $requestUri carries a fragment other than `#link=type:rel,...`
      */
     public function __construct(
         private readonly ProviderInterface $resourceProvider,
         Method $method,
-        private readonly string $requestUri,
+        string $requestUri,
         array $query = [],
         array $links = [],
     ) {
+        [$requestUri, $fragmentLinks] = self::splitLinks($requestUri);
+        $this->requestUri = $requestUri;
+        $links = array_merge($fragmentLinks, $links);
+
         $resourceObject = new NullResourceObject();
         $resourceObject->uri = new Uri($requestUri, $query);
 
@@ -64,6 +81,47 @@ final class DeferredRequest extends AbstractRequest
             $links,
         );
         $this->uri = $this->toUri();
+    }
+
+    /**
+     * Split a URI into its fragment-less form and the links its
+     * `#link=type:rel,...` fragment carries.
+     *
+     * Mirrors the grammar bear/resource's own Resource::newRequest() reads
+     * from a URI's fragment, so a DeferredRequest built from a URI that
+     * carries one (reachable via #[Embed(src: '...#link=...')]) ends up
+     * holding those links the same way a Request built by newRequest()
+     * would: in $this->links, with the fragment stripped from the URI.
+     * That keeps toUri()/hash()/__invoke() in agreement under every
+     * adapter, instead of __invoke() alone (via newRequest()) following
+     * links that toUri()/hash() never saw. Any other non-empty fragment is
+     * rejected rather than silently dropped.
+     *
+     * @return array{0: string, 1: list<LinkType>}
+     *
+     * @throws UriException
+     */
+    private static function splitLinks(string $uri): array
+    {
+        $fragment = (string) parse_url($uri, PHP_URL_FRAGMENT);
+        if ($fragment === '') {
+            return [$uri, []];
+        }
+
+        $link = '(self|new|crawl):([A-Za-z0-9_-]+)';
+        if (preg_match("/\Alink={$link}(,{$link})*\z/", $fragment) !== 1) {
+            throw new UriException($uri, 500);
+        }
+
+        preg_match_all("/{$link}/", $fragment, $matches, PREG_SET_ORDER);
+        $links = [];
+        foreach ($matches as [, $type, $rel]) {
+            $links[] = new LinkType($rel, $type);
+        }
+
+        [$base] = explode('#', $uri, 2);
+
+        return [$base, $links];
     }
 
     /** @param Query|null $query */
