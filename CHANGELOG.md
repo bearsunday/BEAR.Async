@@ -8,6 +8,11 @@ All notable changes to this project will be documented in this file.
 
 - `AsyncRequest` and `DeferredRequest` read once and then changed with `withQuery()`, `addQuery()`, `__invoke()` with a query, or `linkSelf()` / `linkNew()` / `linkCrawl()` now execute again on the next read instead of returning the stale result (#31).
 
+### Changed
+
+- `AsyncRequest::hash()` and `DeferredRequest::hash()` use xxh128 instead of md5; the key stays an opaque 32-character hex string.
+- `SyncAsync` and `SwooleAsync` no longer skip tasks that are not `RequestTask`, matching `AsyncInterface` and `ParallelAsync`.
+
 ## 0.5.0 - 2026-09-22
 
 ### Fixed
