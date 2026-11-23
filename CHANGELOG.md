@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## 0.6.0 - 2026-11-24
 
 ### Fixed
 
@@ -10,8 +10,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- `AsyncRequest::hash()` and `DeferredRequest::hash()` use xxh128 instead of md5; the key stays an opaque 32-character hex string.
-- `SyncAsync` and `SwooleAsync` no longer skip tasks that are not `RequestTask`, matching `AsyncInterface` and `ParallelAsync`.
+- `AsyncRequest::hash()` and `DeferredRequest::hash()` use xxh128 instead of md5; the key stays an opaque 32-character hex string, so only code that stored or compared hash values across versions is affected.
+- `SyncAsync` and `SwooleAsync` now fail on a task that is not a `RequestTask` instead of silently skipping it, like `ParallelAsync`; pass only `RequestTask` instances, as `AsyncInterface` requires.
+- PHP 8.6 is now tested in CI.
 
 ## 0.5.0 - 2026-09-22
 
