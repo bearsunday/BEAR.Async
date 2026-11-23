@@ -9,8 +9,8 @@ use BEAR\Resource\RequestInterface;
 use BEAR\Resource\ResourceObject;
 use Override;
 
+use function hash;
 use function json_decode;
-use function md5;
 use function serialize;
 
 use const JSON_THROW_ON_ERROR;
@@ -33,6 +33,11 @@ use const JSON_THROW_ON_ERROR;
  */
 final class AsyncRequest extends AbstractRequest
 {
+    /**
+     * Non-cryptographic algorithm for hash(): an in-memory identity key, not a security boundary
+     */
+    public const HASH_ALGORITHM = 'xxh128';
+
     public function __construct(
         private readonly AbstractRequest $inner,
         private readonly PendingRequests $pendingRequests,
@@ -119,7 +124,7 @@ final class AsyncRequest extends AbstractRequest
     #[Override]
     public function hash(): string
     {
-        return md5($this->inner->method->value . $this->inner->toUri() . serialize($this->inner->links));
+        return hash(self::HASH_ALGORITHM, $this->inner->method->value . $this->inner->toUri() . serialize($this->inner->links));
     }
 
     /** {@inheritDoc} */

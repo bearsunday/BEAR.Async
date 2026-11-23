@@ -18,7 +18,7 @@ use Override;
 use Ray\Di\ProviderInterface;
 
 use function array_merge;
-use function md5;
+use function hash;
 use function serialize;
 
 /**
@@ -126,7 +126,7 @@ final class DeferredRequest extends AbstractRequest
     #[Override]
     public function hash(): string
     {
-        return md5($this->method->value . $this->toUri() . serialize($this->links));
+        return hash(AsyncRequest::HASH_ALGORITHM, $this->method->value . $this->toUri() . serialize($this->links));
     }
 
     #[Override]
