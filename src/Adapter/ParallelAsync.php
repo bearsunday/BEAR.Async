@@ -21,8 +21,8 @@ use parallel\Runtime;
 use Throwable;
 
 use function array_keys;
-use function assert;
 use function array_values;
+use function assert;
 use function dirname;
 use function sprintf;
 

@@ -37,7 +37,7 @@ use function serialize;
  */
 final class DeferredRequest extends AbstractRequest
 {
-    /** Fragment-less; a `#link=...` fragment is read into $this->links by splitLinks() instead. */
+    /** Fragment-less; a `#link=...` fragment is read into $this->links by the constructor instead. */
     private readonly string $requestUri;
 
     /**
@@ -45,7 +45,7 @@ final class DeferredRequest extends AbstractRequest
      * @param Query                               $query
      * @param list<LinkType>                      $links
      *
-     * @throws UriException if $requestUri carries a fragment other than `#link=type:rel,...`
+     * @throws UriException if $requestUri carries a fragment other than `#link=type:rel[?query],...`
      */
     public function __construct(
         private readonly ProviderInterface $resourceProvider,
@@ -54,12 +54,12 @@ final class DeferredRequest extends AbstractRequest
         array $query = [],
         array $links = [],
     ) {
-        [$requestUri, $fragmentLinks] = self::splitLinks($requestUri);
-        $this->requestUri = $requestUri;
-        $links = array_merge($fragmentLinks, $links);
+        // Read as Resource::newRequest() reads it
+        $links = array_merge(LinkType::listFromUri($requestUri), $links);
+        $this->requestUri = explode('#', $requestUri, 2)[0];
 
         $resourceObject = new NullResourceObject();
-        $resourceObject->uri = new Uri($requestUri, $query);
+        $resourceObject->uri = new Uri($this->requestUri, $query);
 
         parent::__construct(
             new class implements InvokerInterface {
@@ -78,21 +78,6 @@ final class DeferredRequest extends AbstractRequest
         $this->uri = $this->toUri();
     }
 
-    /**
-     * Split off a `#link=type:rel[?query],...` fragment into LinkType[], as Resource::newRequest() reads it
-     *
-     * @return array{0: string, 1: list<LinkType>}
-     *
-     * @throws UriException
-     */
-    private static function splitLinks(string $uri): array
-    {
-        $links = LinkType::listFromUri($uri);
-        [$base] = explode('#', $uri, 2);
-
-        return [$base, $links];
-    }
-
     /** @param Query|null $query */
     #[Override]
     public function __invoke(array|null $query = null): ResourceObject
@@ -105,7 +90,7 @@ final class DeferredRequest extends AbstractRequest
         $request = $this->resourceProvider->get()->newRequest($this->method, $this->requestUri, $this->query);
         assert($request instanceof AbstractRequest);
         // The LinkType objects keep each link's query, which linkSelf() and the like would drop
-        $request->links = [...$request->links, ...$this->links];
+        $request->links = $this->links;
         $request->safeLinksOnly = $this->safeLinksOnly;
 
         return $request();
@@ -154,7 +139,7 @@ final class DeferredRequest extends AbstractRequest
     #[Override]
     public function hash(): string
     {
-        return hash(AsyncRequest::HASH_ALGORITHM, $this->method->value . $this->toUri() . serialize($this->links));
+        return hash(AsyncRequest::HASH_ALGORITHM, $this->method->value . $this->toUri() . serialize($this->links) . (int) $this->safeLinksOnly);
     }
 
     #[Override]
