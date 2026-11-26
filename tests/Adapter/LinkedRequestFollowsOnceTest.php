@@ -55,9 +55,9 @@ final class LinkedRequestFollowsOnceTest extends TestCase
      * Pins the contract ParallelAsync::execute()'s worker closure relies on:
      * a single newRequest() call built from AsyncRequest::toUri() — link
      * fragment included — must follow a self link exactly once. ext-parallel
-     * threads cannot be driven from a test process, so this replicates the
-     * worker closure's one-request, no-replay call directly against a real,
-     * DI-wired ResourceInterface.
+     * threads cannot be driven from a test process, so this makes the worker
+     * closure's single newRequest() call directly against a real, DI-wired
+     * ResourceInterface.
      */
     public function testParallelAsyncWorkerPatternFollowsSelfLinkOnce(): void
     {
@@ -67,8 +67,7 @@ final class LinkedRequestFollowsOnceTest extends TestCase
         $this->assertSame('app://self/author?id=1#link=self:blog', $uri);
 
         // Mirrors ParallelAsync's worker closure: one newRequest() call built
-        // from the full URI (with its link fragment); nothing replays the
-        // link afterward.
+        // from the full URI, link fragment included
         $ro = $this->resource->newRequest(Method::GET, $uri, [])();
 
         $this->assertSame(1, Blog::$calls, 'the self-linked resource must be fetched exactly once');

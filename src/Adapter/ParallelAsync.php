@@ -204,8 +204,8 @@ final class ParallelAsync implements AsyncInterface
      * The method crosses the thread boundary as its backing string and is
      * replayed in the worker via Method::from(), so non-GET embeds keep
      * their verb instead of degrading to GET. The URI carries its
-     * `#link=type:rel,...` fragment, so Resource::newRequest() in the
-     * worker restores the links without the caller replaying them.
+     * `#link=type:rel[?query],...` fragment, which Resource::newRequest()
+     * in the worker reads back.
      *
      * @return array{0: string, 1: string, 2: array<string, mixed>}
      */

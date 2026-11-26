@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - A link query in an `#[Embed]` src under `AsyncEmbedModule` reaches the linked request.
-- `DeferredRequest::toUri()`/`hash()` carry a request's links as `Request::toUri()` does, and `ParallelAsync`'s worker rebuilds the request from that URI instead of replaying `linkSelf()`/`linkNew()`/`linkCrawl()` from a separate array.
+- `DeferredRequest::toUri()`/`hash()` carry a request's links as `Request::toUri()` does, so requests that differ only in their links get their own results, and `ParallelAsync`'s worker rebuilds a request with links from that URI.
 - A `DeferredRequest` built from a URI with a `#link=...` fragment, as an `#[Embed]` src can be, holds those links and keeps the URI without the fragment, as `Resource::newRequest()` does; another fragment throws `UriException`.
 
 ## 0.6.0 - 2026-11-24

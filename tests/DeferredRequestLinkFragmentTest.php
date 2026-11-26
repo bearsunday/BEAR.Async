@@ -161,4 +161,11 @@ final class DeferredRequestLinkFragmentTest extends TestCase
         $this->assertSame('Athos', $plainBody['name'], 'the plain request must not pick up the linked body');
         $this->assertSame('Athos blog', $linkedBody['name']);
     }
+
+    public function testALinkQueryInTheFragmentReachesTheLinkedRequest(): void
+    {
+        $ro = (new DeferredRequest($this->provider, Method::GET, 'app://self/author?id=1#link=self:blog?id=2'))();
+
+        $this->assertSame(['id' => 2, 'name' => 'Athos blog'], $ro->body);
+    }
 }
