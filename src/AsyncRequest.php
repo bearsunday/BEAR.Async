@@ -48,6 +48,8 @@ final class AsyncRequest extends AbstractRequest
         // The parent's $uri is an uninitialised public field, kept around for
         // backward compatibility with callers that read $request->uri directly.
         $this->uri = $inner->toUri();
+        // Read by an adapter that rebuilds the request elsewhere (ParallelAsync)
+        $this->safeLinksOnly = $inner->safeLinksOnly;
         $pendingRequests->add($this);
     }
 

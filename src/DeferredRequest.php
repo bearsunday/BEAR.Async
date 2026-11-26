@@ -20,15 +20,10 @@ use Override;
 use Ray\Di\ProviderInterface;
 
 use function array_merge;
+use function assert;
 use function explode;
 use function md5;
-use function parse_url;
-use function preg_match;
-use function preg_match_all;
 use function serialize;
-
-use const PHP_URL_FRAGMENT;
-use const PREG_SET_ORDER;
 
 /**
  * Defers ResourceObject construction until the request is actually invoked.
@@ -42,7 +37,7 @@ use const PREG_SET_ORDER;
  */
 final class DeferredRequest extends AbstractRequest
 {
-    /** Fragment-less; a `#link=...` fragment is parsed into $this->links by splitLinks() instead. */
+    /** Fragment-less; a `#link=...` fragment is read into $this->links by splitLinks() instead. */
     private readonly string $requestUri;
 
     /**
@@ -84,11 +79,7 @@ final class DeferredRequest extends AbstractRequest
     }
 
     /**
-     * Split off a `#link=type:rel,...` fragment into LinkType[].
-     *
-     * A private copy of Resource::links()'s grammar, since bear/resource
-     * exposes no public parser for it. Any other non-empty fragment
-     * throws UriException, matching bear/resource.
+     * Split off a `#link=type:rel[?query],...` fragment into LinkType[], as Resource::newRequest() reads it
      *
      * @return array{0: string, 1: list<LinkType>}
      *
@@ -96,22 +87,7 @@ final class DeferredRequest extends AbstractRequest
      */
     private static function splitLinks(string $uri): array
     {
-        $fragment = (string) parse_url($uri, PHP_URL_FRAGMENT);
-        if ($fragment === '') {
-            return [$uri, []];
-        }
-
-        $link = '(self|new|crawl):([A-Za-z0-9_-]+)';
-        if (preg_match("/\Alink={$link}(,{$link})*\z/", $fragment) !== 1) {
-            throw new UriException($uri, 500);
-        }
-
-        preg_match_all("/{$link}/", $fragment, $matches, PREG_SET_ORDER);
-        $links = [];
-        foreach ($matches as [, $type, $rel]) {
-            $links[] = new LinkType($rel, $type);
-        }
-
+        $links = LinkType::listFromUri($uri);
         [$base] = explode('#', $uri, 2);
 
         return [$base, $links];
@@ -127,14 +103,10 @@ final class DeferredRequest extends AbstractRequest
         }
 
         $request = $this->resourceProvider->get()->newRequest($this->method, $this->requestUri, $this->query);
-        foreach ($this->links as $link) {
-            match ($link->type) {
-                LinkType::SELF_LINK => $request->linkSelf($link->key),
-                LinkType::NEW_LINK => $request->linkNew($link->key),
-                LinkType::CRAWL_LINK => $request->linkCrawl($link->key),
-                default => null,
-            };
-        }
+        assert($request instanceof AbstractRequest);
+        // The LinkType objects keep each link's query, which linkSelf() and the like would drop
+        $request->links = [...$request->links, ...$this->links];
+        $request->safeLinksOnly = $this->safeLinksOnly;
 
         return $request();
     }

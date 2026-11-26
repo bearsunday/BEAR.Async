@@ -78,6 +78,7 @@ final class DeferredRequestLinkFragmentTest extends TestCase
             'bare hash' => ['#'],
             'self link' => ['#link=self:blog'],
             'new and crawl links' => ['#link=new:a,crawl:b-c_d'],
+            'a link query' => ['#link=self:blog?id=2&x=a%2Cb'],
         ];
     }
 
