@@ -6,11 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Requires bear/resource ^1.37, which carries a request's links in its URI (`#link=type:rel[?query],...`) and follows each link with the method its `#[Link]` declares.
+- Requires bear/resource ^1.37, which carries a request's links and their queries in its URI (`#link=type:rel[?query],...`).
 
 ### Fixed
 
-- An `#[Embed]` src under `AsyncEmbedModule` only reads, as under bear/resource's own interceptor: a link in it whose `#[Link]` is not GET throws `LinkException` instead of running, and a link query reaches the linked request.
+- A link query in an `#[Embed]` src under `AsyncEmbedModule` reaches the linked request.
 - `DeferredRequest::toUri()`/`hash()` carry a request's links as `Request::toUri()` does, and `ParallelAsync`'s worker rebuilds the request from that URI instead of replaying `linkSelf()`/`linkNew()`/`linkCrawl()` from a separate array.
 - A `DeferredRequest` built from a URI with a `#link=...` fragment, as an `#[Embed]` src can be, holds those links and keeps the URI without the fragment, as `Resource::newRequest()` does; another fragment throws `UriException`.
 

@@ -104,8 +104,6 @@ final readonly class AsyncEmbedInterceptor implements EmbedInterceptorInterface
                 if ($embed->rel === self::SELF_LINK) {
                     $request = $this->resourceProvider->get()->newRequest(Method::GET, $uri);
                     assert($request instanceof Request);
-                    // An embed only reads: bear/resource throws LinkException for a link in the src that is not GET
-                    $request->safeLinksOnly = true;
                     $this->linkSelf($request, $ro);
 
                     continue;
@@ -113,9 +111,10 @@ final readonly class AsyncEmbedInterceptor implements EmbedInterceptorInterface
 
                 assert(is_array($ro->body));
 
-                $deferred = new DeferredRequest($this->resourceProvider, Method::GET, $uri);
-                $deferred->safeLinksOnly = true;
-                $ro->body[$embed->rel] = new AsyncRequest($deferred, $pending);
+                $ro->body[$embed->rel] = new AsyncRequest(
+                    new DeferredRequest($this->resourceProvider, Method::GET, $uri),
+                    $pending,
+                );
             } catch (BadRequestException $e) {
                 throw new EmbedException($embed->src, 500, $e);
             }

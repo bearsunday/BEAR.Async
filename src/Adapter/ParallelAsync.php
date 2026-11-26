@@ -13,7 +13,6 @@ use BEAR\Async\Qualifier\PoolSize;
 use BEAR\Async\RequestTask;
 use BEAR\Async\Worker\PayloadValidator;
 use BEAR\Async\Worker\WorkerResourceCache;
-use BEAR\Resource\AbstractRequest;
 use BEAR\Resource\Method;
 use Override;
 use parallel\Future;
@@ -22,7 +21,6 @@ use Throwable;
 
 use function array_keys;
 use function array_values;
-use function assert;
 use function dirname;
 use function sprintf;
 
@@ -160,16 +158,13 @@ final class ParallelAsync implements AsyncInterface
 
             $future = $runtime->run(
                 /** @param array<string, mixed> $query */
-                static function (string $name, string $context, string $appDir, string $method, string $uri, array $query, bool $safeLinksOnly): string {
+                static function (string $name, string $context, string $appDir, string $method, string $uri, array $query): string {
                     $resource = WorkerResourceCache::getOrInit($name, $context, $appDir);
-                    /** @var array<string, mixed> $query */
-                    $request = $resource->newRequest(Method::from($method), $uri, $query);
-                    assert($request instanceof AbstractRequest);
-                    $request->safeLinksOnly = $safeLinksOnly;
 
-                    return (string) $request();
+                    /** @var array<string, mixed> $query */
+                    return (string) $resource->newRequest(Method::from($method), $uri, $query)();
                 },
-                [$this->name, $this->context, $this->appDir, $method, $uri, $query, $request->safeLinksOnly],
+                [$this->name, $this->context, $this->appDir, $method, $uri, $query],
             );
             if ($future !== null) {
                 $futures[$i] = $future;

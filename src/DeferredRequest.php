@@ -91,7 +91,6 @@ final class DeferredRequest extends AbstractRequest
         assert($request instanceof AbstractRequest);
         // The LinkType objects keep each link's query, which linkSelf() and the like would drop
         $request->links = $this->links;
-        $request->safeLinksOnly = $this->safeLinksOnly;
 
         return $request();
     }
@@ -139,7 +138,7 @@ final class DeferredRequest extends AbstractRequest
     #[Override]
     public function hash(): string
     {
-        return hash(AsyncRequest::HASH_ALGORITHM, $this->method->value . $this->toUri() . serialize($this->links) . (int) $this->safeLinksOnly);
+        return hash(AsyncRequest::HASH_ALGORITHM, $this->method->value . $this->toUri() . serialize($this->links));
     }
 
     #[Override]

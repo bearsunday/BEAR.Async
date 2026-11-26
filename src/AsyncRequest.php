@@ -53,8 +53,6 @@ final class AsyncRequest extends AbstractRequest
         // The parent's $uri is an uninitialised public field, kept around for
         // backward compatibility with callers that read $request->uri directly.
         $this->uri = $inner->toUri();
-        // Read by an adapter that rebuilds the request elsewhere (ParallelAsync)
-        $this->safeLinksOnly = $inner->safeLinksOnly;
         $pendingRequests->add($this);
     }
 
@@ -114,21 +112,19 @@ final class AsyncRequest extends AbstractRequest
     }
 
     /**
-     * Identity is method + URI + links + whether the links may only be read, computed uniformly here
+     * Identity is method + URI + links, computed uniformly here
      *
      * PendingRequests keys pending/results by this hash. The inherited
      * class-based hash() cannot be used: for deferred requests the
      * $resourceObject is a NullResourceObject shared across different URIs,
      * and for plain Requests it ignores the URI entirely, so two embeds of
      * the same resource class pointing at different URIs would collide and
-     * silently share one result. With the read-only flag in the identity, an
-     * embed's request and the same one placed by hand never share a result.
-     * The formula matches DeferredRequest::hash().
+     * silently share one result. The formula matches DeferredRequest::hash().
      */
     #[Override]
     public function hash(): string
     {
-        return hash(self::HASH_ALGORITHM, $this->inner->method->value . $this->inner->toUri() . serialize($this->inner->links) . (int) $this->inner->safeLinksOnly);
+        return hash(self::HASH_ALGORITHM, $this->inner->method->value . $this->inner->toUri() . serialize($this->inner->links));
     }
 
     /** {@inheritDoc} */
