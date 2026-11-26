@@ -161,6 +161,7 @@ final class AsyncRequest extends AbstractRequest
         $previousKey = $this->hash();
         $this->inner->linkSelf($linkKey);
         $this->links = $this->inner->links;
+        $this->uri = $this->inner->toUri();
         $this->pendingRequests->rekey($previousKey, $this);
         $this->result = null;
 
@@ -173,6 +174,7 @@ final class AsyncRequest extends AbstractRequest
         $previousKey = $this->hash();
         $this->inner->linkNew($linkKey);
         $this->links = $this->inner->links;
+        $this->uri = $this->inner->toUri();
         $this->pendingRequests->rekey($previousKey, $this);
         $this->result = null;
 
@@ -185,6 +187,7 @@ final class AsyncRequest extends AbstractRequest
         $previousKey = $this->hash();
         $this->inner->linkCrawl($linkKey);
         $this->links = $this->inner->links;
+        $this->uri = $this->inner->toUri();
         $this->pendingRequests->rekey($previousKey, $this);
         $this->result = null;
 
