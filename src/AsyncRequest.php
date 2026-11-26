@@ -121,8 +121,9 @@ final class AsyncRequest extends AbstractRequest
      * $resourceObject is a NullResourceObject shared across different URIs,
      * and for plain Requests it ignores the URI entirely, so two embeds of
      * the same resource class pointing at different URIs would collide and
-     * silently share one result. An embed's read-only request and the same
-     * request placed by hand would share one result too. The formula matches DeferredRequest::hash().
+     * silently share one result. With the read-only flag in the identity, an
+     * embed's request and the same one placed by hand never share a result.
+     * The formula matches DeferredRequest::hash().
      */
     #[Override]
     public function hash(): string
