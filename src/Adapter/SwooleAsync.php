@@ -6,7 +6,6 @@ namespace BEAR\Async\Adapter;
 
 use BEAR\Async\AsyncInterface;
 use BEAR\Async\AsyncRequest;
-use BEAR\Async\RequestTask;
 use Override;
 use Swoole\Coroutine;
 use Swoole\Coroutine\WaitGroup;
@@ -44,10 +43,6 @@ final class SwooleAsync implements AsyncInterface
             $wg->add();
             Coroutine::create(function () use ($key, $task, $wg, $errors): void {
                 try {
-                    if (! ($task instanceof RequestTask)) {
-                        return;
-                    }
-
                     // For crawl: get body and set result
                     $result = ($task->getRequest())()->body;
                     /** @var array<string, mixed>|null $result */

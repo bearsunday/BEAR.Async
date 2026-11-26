@@ -11,9 +11,20 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - An `#[Embed]` src under `AsyncEmbedModule` only reads, as under bear/resource's own interceptor: a link in it whose `#[Link]` is not GET throws `LinkException` instead of running, and a link query reaches the linked request.
+- `DeferredRequest::toUri()`/`hash()` carry a request's links as `Request::toUri()` does, and `ParallelAsync`'s worker rebuilds the request from that URI instead of replaying `linkSelf()`/`linkNew()`/`linkCrawl()` from a separate array.
+- A `DeferredRequest` built from a URI with a `#link=...` fragment, as an `#[Embed]` src can be, holds those links and keeps the URI without the fragment, as `Resource::newRequest()` does; another fragment throws `UriException`.
+
+## 0.6.0 - 2026-11-24
+
+### Fixed
+
 - `AsyncRequest` and `DeferredRequest` read once and then changed with `withQuery()`, `addQuery()`, `__invoke()` with a query, or `linkSelf()` / `linkNew()` / `linkCrawl()` now execute again on the next read instead of returning the stale result (#31).
-- Follow bear/resource 1.36's `#link=type:rel,...` URI fragment (bear/resource #389): `DeferredRequest::toUri()`/`hash()` carry a request's links the way `Request::toUri()` does, and `ParallelAsync`'s worker rebuilds the request from that URI instead of replaying `linkSelf()`/`linkNew()`/`linkCrawl()` from a separate array.
-- `DeferredRequest` built from a URI that already carries a `#link=type:rel,...` fragment (reachable via `#[Embed(src: '...#link=...')]`) now parses that fragment into its own links and strips it from the URI it keeps, the way `Resource::newRequest()` does. Previously the fragment was silently dropped from `toUri()`/`hash()` while `__invoke()` still followed it, so such a request could hash the same as the plain request for that URI and collide with it in one `PendingRequests` batch; a fragment that isn't the `link=...` form now raises `UriException` instead of being ignored.
+
+### Changed
+
+- `AsyncRequest::hash()` and `DeferredRequest::hash()` use xxh128 instead of md5; the key stays an opaque 32-character hex string, so only code that stored or compared hash values across versions is affected.
+- `SyncAsync` and `SwooleAsync` now fail on a task that is not a `RequestTask` instead of silently skipping it, like `ParallelAsync`; pass only `RequestTask` instances, as `AsyncInterface` requires.
+- PHP 8.6 is now tested in CI.
 
 ## 0.5.0 - 2026-09-22
 

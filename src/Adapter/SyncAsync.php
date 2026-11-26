@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace BEAR\Async\Adapter;
 
 use BEAR\Async\AsyncInterface;
-use BEAR\Async\RequestTask;
 use Override;
 use Throwable;
 
@@ -29,10 +28,6 @@ final class SyncAsync implements AsyncInterface
     {
         $errors = new TaskErrors();
         foreach ($tasks as $key => $task) {
-            if (! ($task instanceof RequestTask)) {
-                continue;
-            }
-
             try {
                 // For crawl: get body and set result
                 $result = ($task->getRequest())()->body;
